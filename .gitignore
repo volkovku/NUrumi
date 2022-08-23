@@ -13,6 +13,9 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+# Common IntelliJ Platform excludes
+.idea/
+
 # Mono auto generated files
 mono_crash.*
 
