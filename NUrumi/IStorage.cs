@@ -1,9 +1,12 @@
-﻿using NUrumi.Extensions;
+﻿using System.Collections.Generic;
+using NUrumi.Extensions;
 
 namespace NUrumi
 {
     public interface IStorage
     {
+        void Collect(Filter filter, List<int> destination);
+
         bool TryGet<TExtension>(out TExtension extension)
             where TExtension : Extension<TExtension>;
 
@@ -11,7 +14,7 @@ namespace NUrumi
             where TExtension : Extension<TExtension>;
 
         void RemoveEntity(EntityId entityId);
-        
+
         bool Has<TComponent>(EntityId entityId)
             where TComponent : Component<TComponent>, new();
 

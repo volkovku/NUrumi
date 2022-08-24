@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using NUnit.Framework;
@@ -86,12 +87,20 @@ namespace NUrumi.Test
         [Test]
         public void EntityGenerations()
         {
-            var reuseBarrier = 100;
+            const int reuseBarrier = 100;
+
             var context = new Context(new SafeStorage(), entityReuseBarrier: reuseBarrier);
             var usedIndexes = new HashSet<int>();
             for (var i = 0; i < reuseBarrier; i++)
             {
                 var entity = context.Create();
+                Assert.AreEqual(false, entity.Has<PlayerName>());
+
+                var name = Guid.NewGuid().ToString();
+                entity.With<PlayerName>().Set(_ => _.Value, name);
+
+                Assert.AreEqual(true, entity.Has<PlayerName>());
+                Assert.AreEqual(name, entity.With<PlayerName>().Get(_ => _.Value));
                 Assert.AreEqual(i, entity.Id.Index);
                 Assert.AreEqual(true, usedIndexes.Add(entity.Id.Index));
                 Assert.AreEqual(1, entity.Id.Generation);
@@ -101,6 +110,13 @@ namespace NUrumi.Test
             for (var i = 0; i < reuseBarrier; i++)
             {
                 var entity = context.Create();
+                Assert.AreEqual(false, entity.Has<PlayerName>());
+
+                var name = Guid.NewGuid().ToString();
+                entity.With<PlayerName>().Set(_ => _.Value, name);
+
+                Assert.AreEqual(true, entity.Has<PlayerName>());
+                Assert.AreEqual(name, entity.With<PlayerName>().Get(_ => _.Value));
                 Assert.AreEqual(i, entity.Id.Index);
                 Assert.AreEqual(false, usedIndexes.Add(entity.Id.Index));
                 Assert.AreEqual(2, entity.Id.Generation);
@@ -114,8 +130,59 @@ namespace NUrumi.Test
             for (var i = 0; i < reuseBarrier; i++)
             {
                 var entity = context.Create();
+                Assert.AreEqual(false, entity.Has<PlayerName>());
+
+                var name = Guid.NewGuid().ToString();
+                entity.With<PlayerName>().Set(_ => _.Value, name);
+
+                Assert.AreEqual(true, entity.Has<PlayerName>());
+                Assert.AreEqual(name, entity.With<PlayerName>().Get(_ => _.Value));
                 Assert.AreEqual(true, usedIndexes.Add(entity.Id.Index));
                 Assert.AreEqual(1, entity.Id.Generation);
+            }
+        }
+
+        [Test]
+        public void EntitySimpleFilter()
+        {
+            var context = new Context(new SafeStorage());
+
+            for (var i = 1; i <= 100; i++)
+            {
+                var entity = context.Create();
+                entity.With<PlayerName>().Set(_ => _.Value, $"Player #{i}");
+                entity.With<PlayerNumber>().Set(_ => _.Value, i);
+                if (i % 2 == 0)
+                {
+                    entity.With<Position>().Set(_ => _.Value, new Vector3(i, i, i));
+                }
+            }
+
+            var playersWithPositions = new List<Entity>();
+            context.Collect(
+                Filter.With<Position>(),
+                playersWithPositions);
+            
+            Assert.AreEqual(50, playersWithPositions.Count);
+            foreach (var entity in playersWithPositions)
+            {
+                var playerNumber = entity.With<PlayerNumber>().Get(_ => _.Value);
+                var playerPosition = new Vector3(playerNumber, playerNumber, playerNumber);
+                Assert.AreEqual($"Player #{playerNumber}", entity.With<PlayerName>().Get(_ => _.Value));
+                Assert.AreEqual(playerPosition, entity.With<Position>().Get(_ => _.Value));
+            }
+
+            var playersWithoutPositions = new List<Entity>();
+            context.Collect(
+                Filter.With<PlayerName>().AndNot<Position>(),
+                playersWithoutPositions);
+
+            Assert.AreEqual(50, playersWithoutPositions.Count);
+            foreach (var entity in playersWithoutPositions)
+            {
+                var playerNumber = entity.With<PlayerNumber>().Get(_ => _.Value);
+                Assert.AreEqual($"Player #{playerNumber}", entity.With<PlayerName>().Get(_ => _.Value));
+                Assert.AreEqual(false, entity.Has<Position>());
             }
         }
 
@@ -127,6 +194,11 @@ namespace NUrumi.Test
         private class Position : Component<Position>
         {
             public FieldWith<Default<Vector3>, Vector3> Value;
+        }
+
+        private class PlayerNumber : Component<PlayerNumber>
+        {
+            public FieldWith<Default<int>, int> Value;
         }
 
         private class Parent : Component<Parent>

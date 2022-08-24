@@ -7,6 +7,7 @@ namespace NUrumi
     {
         private const int DeadGen = 0;
 
+        private readonly List<int> _reusableCollector = new List<int>();
         private readonly Queue<EntityId> _freeEntities = new Queue<EntityId>();
         private readonly IStorage _storage;
         private readonly int _entityReuseBarrier;
@@ -79,6 +80,26 @@ namespace NUrumi
 
             entity = new Entity(this, _storage, id);
             return true;
+        }
+
+        public void Collect(Filter filter, List<EntityId> destination)
+        {
+            _reusableCollector.Clear();
+            _storage.Collect(filter, _reusableCollector);
+            foreach (var entityIndex in _reusableCollector)
+            {
+                destination.Add(new EntityId(entityIndex, _aliveEntities[entityIndex]));
+            }
+        }
+
+        public void Collect(Filter filter, List<Entity> destination)
+        {
+            _reusableCollector.Clear();
+            _storage.Collect(filter, _reusableCollector);
+            foreach (var entityIndex in _reusableCollector)
+            {
+                destination.Add(Get(new EntityId(entityIndex, _aliveEntities[entityIndex])));
+            }
         }
 
         public bool IsAlive(EntityId entityId)

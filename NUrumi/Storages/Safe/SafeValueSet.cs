@@ -7,17 +7,19 @@ namespace NUrumi.Storages.Safe
         private const int None = -1;
 
         private int[] _entityIndex;
-        private int[] _reverseIndex;
         private TValue[] _values;
         private int _freeValues;
 
         public SafeValueSet(int initialCapacity)
         {
             _entityIndex = new int[initialCapacity];
-            _reverseIndex = new int[initialCapacity];
+            ReverseIndex = new int[initialCapacity];
             _values = new TValue[initialCapacity];
             _freeValues = initialCapacity;
         }
+
+        public int Count;
+        public int[] ReverseIndex;
 
         public bool TryGet(int entityIndex, out TValue value)
         {
@@ -60,14 +62,16 @@ namespace NUrumi.Storages.Safe
             if (lastValueIndex == valueIndex)
             {
                 _freeValues += 1;
+                Count -= 1;
             }
             else
             {
-                var movedEntityIndex = _reverseIndex[lastValueIndex];
+                var movedEntityIndex = ReverseIndex[lastValueIndex];
                 _entityIndex[movedEntityIndex] = valueIndex + 1;
                 _values[valueIndex] = _values[lastValueIndex];
-                _reverseIndex[valueIndex] = movedEntityIndex;
+                ReverseIndex[valueIndex] = movedEntityIndex;
                 _freeValues += 1;
+                Count -= 1;
             }
 
             return true;
@@ -96,19 +100,20 @@ namespace NUrumi.Storages.Safe
                 var newReverseIndex = new int[newSize];
                 var newValues = new TValue[newSize];
 
-                Array.Copy(_reverseIndex, newReverseIndex, _reverseIndex.Length);
+                Array.Copy(ReverseIndex, newReverseIndex, ReverseIndex.Length);
                 Array.Copy(_values, newValues, _values.Length);
 
                 _freeValues = _values.Length;
                 _values = newValues;
-                _reverseIndex = newReverseIndex;
+                ReverseIndex = newReverseIndex;
             }
 
             var valueIndex = _values.Length - _freeValues;
             _entityIndex[entityIndex] = valueIndex + 1;
-            _reverseIndex[valueIndex] = entityIndex;
+            ReverseIndex[valueIndex] = entityIndex;
             _values[valueIndex] = value;
             _freeValues -= 1;
+            Count += 1;
 
             oldValue = default;
             return true;

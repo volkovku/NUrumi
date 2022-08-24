@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using NUrumi.Extensions;
 
 namespace NUrumi.Storages.Safe
@@ -8,7 +9,7 @@ namespace NUrumi.Storages.Safe
         private readonly int _valuesSetInitialCapacity;
 
         private object[] _extensions;
-        private bool[][] _components;
+        private SafeValueSet<bool>[] _components;
         private object[] _valueSet;
 
         public SafeStorage(
@@ -19,7 +20,7 @@ namespace NUrumi.Storages.Safe
         {
             _valuesSetInitialCapacity = valuesSetInitialCapacity;
             _valueSet = new object[Math.Max(1, fieldsInitialCapacity)];
-            _components = new bool[Math.Max(1, componentsInitialCapacity)][];
+            _components = new SafeValueSet<bool>[Math.Max(1, componentsInitialCapacity)];
             _extensions = new object[Math.Max(1, extensionsInitialCapacity)];
         }
 
@@ -49,6 +50,82 @@ namespace NUrumi.Storages.Safe
             return extension != null;
         }
 
+        public void Collect(Filter filter, List<int> destination)
+        {
+            SafeValueSet<bool> setOfEntities = null;
+
+            var baseLineIndex = 0;
+            foreach (var componentIndex in filter.Include)
+            {
+                if (componentIndex >= _components.Length)
+                {
+                    return;
+                }
+
+                var ix = _components[componentIndex];
+                if (ix == null)
+                {
+                    return;
+                }
+
+                if (setOfEntities == null || ix.Count < setOfEntities.Count)
+                {
+                    setOfEntities = ix;
+                    baseLineIndex = componentIndex;
+                }
+            }
+
+            if (setOfEntities == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < setOfEntities.Count; i++)
+            {
+                var entityIndex = setOfEntities.ReverseIndex[i];
+                var found = true;
+                foreach (var componentIndex in filter.Include)
+                {
+                    if (componentIndex == baseLineIndex)
+                    {
+                        continue;
+                    }
+
+                    var ix = _components[componentIndex];
+                    if (!ix.TryGet(entityIndex, out _))
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    continue;
+                }
+
+                foreach (var componentIndex in filter.Exclude)
+                {
+                    var ix = _components[componentIndex];
+                    if (ix == null)
+                    {
+                        continue;
+                    }
+
+                    if (ix.TryGet(entityIndex, out _))
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+
+                if (found)
+                {
+                    destination.Add(entityIndex);
+                }
+            }
+        }
+
         public bool Has<TComponent>(EntityId entityId) where TComponent : Component<TComponent>, new()
         {
             return Has(Component.InstanceOf<TComponent>(), entityId.Index);
@@ -59,10 +136,13 @@ namespace NUrumi.Storages.Safe
             var entityIndex = id.Index;
             for (var componentIndex = 0; componentIndex < _components.Length; componentIndex++)
             {
-                var entitiesExistence = _components[componentIndex];
-                if (entitiesExistence == null
-                    || entitiesExistence.Length <= entityIndex
-                    || !entitiesExistence[entityIndex])
+                var ix = _components[componentIndex];
+                if (ix == null)
+                {
+                    continue;
+                }
+
+                if (!ix.Remove(entityIndex, out _))
                 {
                     continue;
                 }
@@ -72,8 +152,6 @@ namespace NUrumi.Storages.Safe
                 {
                     field.Remove(this, id);
                 }
-
-                entitiesExistence[entityIndex] = false;
             }
         }
 
@@ -87,10 +165,13 @@ namespace NUrumi.Storages.Safe
             }
 
             var entityIndex = id.Index;
-            var entitiesExistence = _components[componentIndex];
-            if (entitiesExistence == null
-                || entitiesExistence.Length <= entityIndex
-                || !entitiesExistence[entityIndex])
+            var ix = _components[componentIndex];
+            if (ix == null)
+            {
+                return false;
+            }
+
+            if (!ix.Remove(entityIndex, out _))
             {
                 return false;
             }
@@ -100,7 +181,6 @@ namespace NUrumi.Storages.Safe
                 field.Remove(this, id);
             }
 
-            entitiesExistence[entityIndex] = false;
             return true;
         }
 
@@ -178,39 +258,27 @@ namespace NUrumi.Storages.Safe
                 return false;
             }
 
-            var entitiesExistence = _components[componentIndex];
-            if (entitiesExistence == null || entitiesExistence.Length <= entityIndex)
-            {
-                return false;
-            }
-
-            return entitiesExistence[entityIndex];
+            var ix = _components[componentIndex];
+            return ix != null && ix.TryGet(entityIndex, out _);
         }
 
         private void AddComponentPresents(int entityIndex, int componentIndex)
         {
             if (componentIndex >= _components.Length)
             {
-                var newComponents = new bool[componentIndex * 2][];
+                var newComponents = new SafeValueSet<bool>[componentIndex << 1];
                 Array.Copy(_components, newComponents, _components.Length);
                 _components = newComponents;
             }
 
-            var entitiesExistence = _components[componentIndex];
-            if (entitiesExistence == null)
+            var ix = _components[componentIndex];
+            if (ix == null)
             {
-                entitiesExistence = new bool[entityIndex + 1];
-                _components[componentIndex] = entitiesExistence;
-            }
-            else if (entityIndex >= entitiesExistence.Length)
-            {
-                var newEntitiesExistence = new bool[entityIndex * 2];
-                Array.Copy(entitiesExistence, newEntitiesExistence, entitiesExistence.Length);
-                entitiesExistence = newEntitiesExistence;
-                _components[componentIndex] = entitiesExistence;
+                ix = new SafeValueSet<bool>(10);
+                _components[componentIndex] = ix;
             }
 
-            entitiesExistence[entityIndex] = true;
+            ix.Set(entityIndex, true, out _);
         }
     }
 }
