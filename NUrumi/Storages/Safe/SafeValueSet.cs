@@ -38,20 +38,23 @@ namespace NUrumi.Storages.Safe
             return true;
         }
 
-        public void Remove(int entityIndex)
+        public bool Remove(int entityIndex, out TValue oldValue)
         {
             if (entityIndex >= _entityIndex.Length)
             {
-                return;
+                oldValue = default;
+                return false;
             }
 
             var valueIndex = _entityIndex[entityIndex] - 1;
             if (valueIndex == None)
             {
-                return;
+                oldValue = default;
+                return false;
             }
 
-            _entityIndex[entityIndex] = None;
+            oldValue = _values[valueIndex];
+            _entityIndex[entityIndex] = None + 1;
 
             var lastValueIndex = _values.Length - _freeValues - 1;
             if (lastValueIndex == valueIndex)
@@ -66,6 +69,8 @@ namespace NUrumi.Storages.Safe
                 _reverseIndex[valueIndex] = movedEntityIndex;
                 _freeValues += 1;
             }
+
+            return true;
         }
 
         public bool Set(int entityIndex, TValue value, out TValue oldValue)
@@ -80,7 +85,7 @@ namespace NUrumi.Storages.Safe
             var currentIndex = _entityIndex[entityIndex] - 1;
             if (currentIndex != None)
             {
-                oldValue = _values[currentIndex]; 
+                oldValue = _values[currentIndex];
                 _values[currentIndex] = value;
                 return false;
             }

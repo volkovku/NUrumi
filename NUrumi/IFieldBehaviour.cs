@@ -17,5 +17,7 @@
             int fieldIndex,
             TValue value)
             where TComponent : Component<TComponent>, new();
+
+        bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue);
     }
 }

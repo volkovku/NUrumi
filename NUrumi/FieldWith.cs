@@ -8,6 +8,7 @@ namespace NUrumi
         private int _index;
 
         public int Index => _index;
+        public string Name { get; private set; }
 
         public bool TryGet<TComponent>(IStorage storage, EntityId entityId, TComponent component, out TValue value)
             where TComponent : Component<TComponent>, new()
@@ -31,9 +32,29 @@ namespace NUrumi
                 value);
         }
 
-        void IField.SetIndex(int index)
+        private bool Remove(IStorage storage, EntityId entityId)
+        {
+            return FieldBehaviours<TBehaviour, TValue>.Instance.Remove(
+                storage,
+                entityId,
+                _index,
+                out _);
+        }
+
+        bool IField.Remove(IStorage storage, EntityId entityId)
+        {
+            return Remove(storage, entityId);
+        }
+
+        bool IField<TValue>.Remove(IStorage storage, EntityId entityId)
+        {
+            return Remove(storage, entityId);
+        }
+
+        void IField.SetMetaData(int index, string name)
         {
             _index = index;
+            Name = name;
         }
     }
 
@@ -44,11 +65,17 @@ namespace NUrumi
 
         void Set<TComponent>(IStorage storage, EntityId entityId, TComponent component, TValue value)
             where TComponent : Component<TComponent>, new();
-    }
 
+        bool Remove(IStorage storage, EntityId entityId);
+    }
+    
     internal interface IField
     {
-        void SetIndex(int index);
+        int Index { get; }
+        string Name { get; }
+
+        void SetMetaData(int index, string name);
+        bool Remove(IStorage storage, EntityId entityId);
     }
 
     internal static class FieldIndex
@@ -57,7 +84,7 @@ namespace NUrumi
 
         public static int Next()
         {
-            return Interlocked.Increment(ref _nextIndex);
+            return Interlocked.Increment(ref _nextIndex) - 1;
         }
     }
 

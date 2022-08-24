@@ -23,5 +23,10 @@
         {
             storage.Set(entityId, component, fieldIndex, value, out _);
         }
+
+        public bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
+        {
+            return storage.Remove(entityId, fieldIndex, out oldValue);
+        }
     }
 }

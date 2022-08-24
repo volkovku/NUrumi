@@ -10,7 +10,12 @@ namespace NUrumi
         void Add<TExtension>(TExtension extension)
             where TExtension : Extension<TExtension>;
 
+        void RemoveEntity(EntityId entityId);
+        
         bool Has<TComponent>(EntityId entityId)
+            where TComponent : Component<TComponent>, new();
+
+        bool Remove<TComponent>(EntityId id)
             where TComponent : Component<TComponent>, new();
 
         bool TryGet<TComponent, TValue>(EntityId entityId, TComponent component, int fieldIndex, out TValue value)
@@ -23,5 +28,7 @@ namespace NUrumi
             TValue value,
             out TValue oldValue)
             where TComponent : Component<TComponent>, new();
+
+        bool Remove<TValue>(EntityId entityId, int fieldIndex, out TValue oldValue);
     }
 }

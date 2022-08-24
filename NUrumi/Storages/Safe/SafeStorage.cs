@@ -5,6 +5,8 @@ namespace NUrumi.Storages.Safe
 {
     public sealed class SafeStorage : IStorage
     {
+        private readonly int _valuesSetInitialCapacity;
+
         private object[] _extensions;
         private bool[][] _components;
         private object[] _valueSet;
@@ -12,8 +14,10 @@ namespace NUrumi.Storages.Safe
         public SafeStorage(
             int componentsInitialCapacity = 100,
             int fieldsInitialCapacity = 100,
+            int valuesSetInitialCapacity = 100,
             int extensionsInitialCapacity = 5)
         {
+            _valuesSetInitialCapacity = valuesSetInitialCapacity;
             _valueSet = new object[Math.Max(1, fieldsInitialCapacity)];
             _components = new bool[Math.Max(1, componentsInitialCapacity)][];
             _extensions = new object[Math.Max(1, extensionsInitialCapacity)];
@@ -48,6 +52,56 @@ namespace NUrumi.Storages.Safe
         public bool Has<TComponent>(EntityId entityId) where TComponent : Component<TComponent>, new()
         {
             return Has(Component.InstanceOf<TComponent>(), entityId.Index);
+        }
+
+        public void RemoveEntity(EntityId id)
+        {
+            var entityIndex = id.Index;
+            for (var componentIndex = 0; componentIndex < _components.Length; componentIndex++)
+            {
+                var entitiesExistence = _components[componentIndex];
+                if (entitiesExistence == null
+                    || entitiesExistence.Length <= entityIndex
+                    || !entitiesExistence[entityIndex])
+                {
+                    continue;
+                }
+
+                var component = Component.InstanceOf(componentIndex);
+                foreach (var field in component.Fields)
+                {
+                    field.Remove(this, id);
+                }
+
+                entitiesExistence[entityIndex] = false;
+            }
+        }
+
+        public bool Remove<TComponent>(EntityId id) where TComponent : Component<TComponent>, new()
+        {
+            var component = Component.InstanceOf<TComponent>();
+            var componentIndex = component.Index;
+            if (componentIndex >= _components.Length)
+            {
+                return false;
+            }
+
+            var entityIndex = id.Index;
+            var entitiesExistence = _components[componentIndex];
+            if (entitiesExistence == null
+                || entitiesExistence.Length <= entityIndex
+                || !entitiesExistence[entityIndex])
+            {
+                return false;
+            }
+
+            foreach (var field in component.Fields)
+            {
+                field.Remove(this, id);
+            }
+
+            entitiesExistence[entityIndex] = false;
+            return true;
         }
 
         public bool TryGet<TComponent, TValue>(
@@ -90,7 +144,7 @@ namespace NUrumi.Storages.Safe
             var valueSet = (SafeValueSet<TValue>) _valueSet[fieldIndex];
             if (valueSet == null)
             {
-                valueSet = new SafeValueSet<TValue>(100);
+                valueSet = new SafeValueSet<TValue>(_valuesSetInitialCapacity);
                 _valueSet[fieldIndex] = valueSet;
             }
 
@@ -101,6 +155,18 @@ namespace NUrumi.Storages.Safe
             }
 
             return false;
+        }
+
+        public bool Remove<TValue>(EntityId entityId, int fieldIndex, out TValue oldValue)
+        {
+            if (fieldIndex >= _valueSet.Length)
+            {
+                oldValue = default;
+                return false;
+            }
+
+            var valueSet = (SafeValueSet<TValue>) _valueSet[fieldIndex];
+            return valueSet.Remove(entityId.Index, out oldValue);
         }
 
         private bool Has<TComponent>(TComponent component, int entityIndex)

@@ -39,6 +39,23 @@ namespace NUrumi.Extensions
 
             extension.Set(fieldIndex, entityId, value);
         }
+
+        public bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
+        {
+            if (!storage.TryGet<IndexExtension<TValue>>(out var extension))
+            {
+                extension = new IndexExtension<TValue>();
+                storage.Add(extension);
+            }
+
+            if (storage.Remove(entityId, fieldIndex, out oldValue))
+            {
+                extension.Remove(fieldIndex, entityId, oldValue);
+                return true;
+            }
+
+            return false;
+        }
     }
 
     public static class IndexCompanion
