@@ -13,20 +13,26 @@ namespace NUrumi
         private readonly Queue<EntityId> _freeEntities = new Queue<EntityId>();
         private readonly Storage _storage;
         private readonly int _entityReuseBarrier;
-        private short[] _aliveEntities;
+        private short[] _entities;
         private int _nextEntityIndex;
+        private int _entitiesCount;
 
-        public Context(Storage storage, int entityInitialCapacity = 512, int entityReuseBarrier = 1000)
+        public Context(int entityInitialCapacity = 512, int entityReuseBarrier = 1000)
         {
-            _storage = storage;
-            _aliveEntities = new short[Math.Max(1, entityInitialCapacity)];
+            _entitiesCount = 0;
+            _entities = new short[Math.Max(1, entityInitialCapacity)];
             _entityReuseBarrier = entityReuseBarrier;
+            _storage = new Storage(this, entityInitialCapacity);
         }
+
+        public int EntitiesCount => _entitiesCount;
+        public Storage Storage => _storage;
 
         public Entity Create()
         {
             var id = GetEntityId();
             SetAlive(id);
+            _entitiesCount += 1;
             return new Entity(this, _storage, id);
         }
 
@@ -41,6 +47,7 @@ namespace NUrumi
             }
 
             SetAlive(id);
+            _entitiesCount += 1;
             return new Entity(this, _storage, id);
         }
 
@@ -55,8 +62,9 @@ namespace NUrumi
             }
 
             _storage.RemoveEntity(id);
-            _aliveEntities[id.Index] = DeadGen;
+            _entities[id.Index] = DeadGen;
             _freeEntities.Enqueue(id);
+            _entitiesCount -= 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -85,7 +93,7 @@ namespace NUrumi
             entity = new Entity(this, _storage, id);
             return true;
         }
-        
+
         public FieldQuickAccess<TValue> QuickAccessOf<TComponent, TValue>(Func<TComponent, IField<TValue>> field)
             where TComponent : Component<TComponent>, new()
         {
@@ -98,7 +106,7 @@ namespace NUrumi
             _storage.Collect(filter, _reusableCollector);
             foreach (var entityIndex in _reusableCollector)
             {
-                destination.Add(new EntityId(entityIndex, _aliveEntities[entityIndex]));
+                destination.Add(new EntityId(entityIndex, _entities[entityIndex]));
             }
         }
 
@@ -108,7 +116,7 @@ namespace NUrumi
             _storage.Collect(filter, _reusableCollector);
             foreach (var entityIndex in _reusableCollector)
             {
-                destination.Add(Get(new EntityId(entityIndex, _aliveEntities[entityIndex])));
+                destination.Add(Get(new EntityId(entityIndex, _entities[entityIndex])));
             }
         }
 
@@ -116,34 +124,43 @@ namespace NUrumi
         public bool IsAlive(EntityId entityId)
         {
             var index = entityId.Index;
-            if (index >= _aliveEntities.Length)
+            if (index >= _entities.Length)
             {
                 return false;
             }
 
-            return _aliveEntities[index] == entityId.Generation;
+            return _entities[index] == entityId.Generation;
         }
 
         private void SetAlive(EntityId entityId)
         {
-            var index = entityId.Index;
-            if (index >= _aliveEntities.Length)
+            var entityIndex = entityId.Index;
+            EnsureEntitiesSize(entityIndex);
+            _entities[entityIndex] = entityId.Generation;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureEntitiesSize(int entityIndex)
+        {
+            if (entityIndex < _entities.Length)
             {
-                Array.Resize(ref _aliveEntities, index << 1);
+                return;
             }
 
-            _aliveEntities[index] = entityId.Generation;
+            var newSize = entityIndex << 1;
+            Array.Resize(ref _entities, newSize);
+            _storage.ResizeEntities(newSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsFree(int entityIndex)
         {
-            if (entityIndex >= _aliveEntities.Length)
+            if (entityIndex >= _entities.Length)
             {
                 return true;
             }
 
-            return _aliveEntities[entityIndex] == DeadGen;
+            return _entities[entityIndex] == DeadGen;
         }
 
         private EntityId GetEntityId()
@@ -153,7 +170,7 @@ namespace NUrumi
                 var id = _freeEntities.Dequeue();
                 if (IsFree(id.Index))
                 {
-                    return new EntityId(id.Index, (short)(id.Generation + GenInc));
+                    return new EntityId(id.Index, (short) (id.Generation + GenInc));
                 }
             }
 

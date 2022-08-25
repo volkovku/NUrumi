@@ -1,15 +1,18 @@
-﻿using NUrumi.Storages.Safe;
-
-namespace NUrumi
+﻿namespace NUrumi
 {
     public sealed class FieldQuickAccess<TValue>
     {
+        private readonly StorageValueSet<bool> _component;
         private readonly StorageValueSet<TValue> _valueSet;
 
         public readonly int FieldIndex;
 
-        public FieldQuickAccess(StorageValueSet<TValue> valueSet, int fieldIndex)
+        public FieldQuickAccess(
+            StorageValueSet<bool> component,
+            StorageValueSet<TValue> valueSet,
+            int fieldIndex)
         {
+            _component = component;
             _valueSet = valueSet;
             FieldIndex = fieldIndex;
         }
@@ -34,17 +37,31 @@ namespace NUrumi
 
         public void Set(EntityId entityId, TValue value)
         {
-            _valueSet.Set(entityId.Index, value, out _);
+            Set(entityId, value, out _);
         }
 
         public bool Set(EntityId entityId, TValue value, out TValue oldValue)
         {
-            return _valueSet.Set(entityId.Index, value, out oldValue);
+            var entityIndex = entityId.Index;
+            if (_valueSet.Set(entityIndex, value, out oldValue))
+            {
+                _component.Set(entityIndex, true, out _);
+                return true;
+            }
+
+            return false;
         }
 
         public bool Remove(EntityId entityId, out TValue oldValue)
         {
-            return _valueSet.Remove(entityId.Index, out oldValue);
+            var entityIndex = entityId.Index;
+            if (_valueSet.Remove(entityId.Index, out oldValue))
+            {
+                _component.Set(entityIndex, false, out _);
+                return true;
+            }
+
+            return false;
         }
     }
 }

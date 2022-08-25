@@ -4,7 +4,6 @@ using System.Linq;
 using System.Numerics;
 using NUnit.Framework;
 using NUrumi.Extensions;
-using NUrumi.Storages.Safe;
 
 namespace NUrumi.Test
 {
@@ -14,13 +13,7 @@ namespace NUrumi.Test
         [Test]
         public void EntityBasics()
         {
-            var storage = new Storage(
-                componentsInitialCapacity: 1,
-                fieldsInitialCapacity: 1,
-                extensionsInitialCapacity: 1,
-                valuesSetInitialCapacity: 1);
-
-            var context = new Context(storage);
+            var context = new Context();
 
             var bob = context.Create();
             var alice = context.Create();
@@ -43,12 +36,12 @@ namespace NUrumi.Test
             Assert.AreEqual("Tom", bob.With<PlayerName>().Get(_ => _.Value));
             Assert.AreEqual("Alice", alice.With<PlayerName>().Get(_ => _.Value));
 
-            var bobChildren = storage.FindWith<Parent, EntityId>(_ => _.Id, bob.Id);
+            var bobChildren = context.FindWith<Parent, EntityId>(_ => _.Id, bob.Id);
             Assert.AreEqual(1, bobChildren.Count);
             Assert.AreEqual(alice.Id, bobChildren.First());
 
             alice.Remove<Parent>();
-            var bobChildrenAfterDetach = storage.FindWith<Parent, EntityId>(_ => _.Id, bob.Id);
+            var bobChildrenAfterDetach = context.FindWith<Parent, EntityId>(_ => _.Id, bob.Id);
             Assert.AreEqual(0, bobChildrenAfterDetach.Count);
             Assert.AreEqual(false, alice.Has<Parent>());
         }
@@ -56,7 +49,7 @@ namespace NUrumi.Test
         [Test]
         public void EntityLivecycle()
         {
-            var context = new Context(new Storage());
+            var context = new Context();
             var entity = context.Create();
             Assert.AreEqual(true, context.IsAlive(entity.Id));
 
@@ -89,7 +82,7 @@ namespace NUrumi.Test
         {
             const int reuseBarrier = 100;
 
-            var context = new Context(new Storage(), entityReuseBarrier: reuseBarrier);
+            var context = new Context(entityReuseBarrier: reuseBarrier);
             var usedIndexes = new HashSet<int>();
             for (var i = 0; i < reuseBarrier; i++)
             {
@@ -145,7 +138,7 @@ namespace NUrumi.Test
         [Test]
         public void EntitySimpleFilter()
         {
-            var context = new Context(new Storage());
+            var context = new Context();
 
             for (var i = 1; i <= 100; i++)
             {

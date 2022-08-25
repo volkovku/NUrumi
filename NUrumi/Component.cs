@@ -57,7 +57,7 @@ namespace NUrumi
                     continue;
                 }
 
-                ecsField.SetMetaData(FieldIndex.Next(), field.Name);
+                ecsField.SetMetaData(FieldIndex.Next(), Index, field.Name);
                 field.SetValue(Instance, ecsField);
                 componentFields.Add(ecsField);
             }

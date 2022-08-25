@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
 using Leopotam.EcsLite;
-using NUrumi.Storages.Safe;
 
 namespace NUrumi.Benchmark.Bench
 {
@@ -20,7 +19,7 @@ namespace NUrumi.Benchmark.Bench
 
         public SimpleMoveBench()
         {
-            _urumi = new Context(new Storage());
+            _urumi = new Context();
             _urumiFilter = Filter.With<UrumiVelocity>();
 
             _leo = new EcsWorld();

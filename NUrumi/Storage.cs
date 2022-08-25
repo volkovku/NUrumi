@@ -1,26 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using NUrumi.Extensions;
-using NUrumi.Storages.Safe;
 
 namespace NUrumi
 {
-    public sealed class Storage 
+    public sealed class Storage
     {
-        private readonly int _valuesSetInitialCapacity;
+        private readonly Context _context;
+        private readonly int _valuesInitialCapacity;
+        private readonly int _entitiesInitialCapacity;
 
         private object[] _extensions;
         private StorageValueSet<bool>[] _components;
-        private object[] _valueSet;
+        private IStorageValueSet[] _valueSet;
 
         public Storage(
+            Context context,
+            int entitiesInitialCapacity,
             int componentsInitialCapacity = 512,
             int fieldsInitialCapacity = 512,
-            int valuesSetInitialCapacity = 512,
+            int valuesInitialCapacity = 512,
             int extensionsInitialCapacity = 512)
         {
-            _valuesSetInitialCapacity = valuesSetInitialCapacity;
-            _valueSet = new object[Math.Max(1, fieldsInitialCapacity)];
+            _context = context;
+            _entitiesInitialCapacity = entitiesInitialCapacity;
+            _valuesInitialCapacity = valuesInitialCapacity;
+            _valueSet = new IStorageValueSet[Math.Max(1, fieldsInitialCapacity)];
             _components = new StorageValueSet<bool>[Math.Max(1, componentsInitialCapacity)];
             _extensions = new object[Math.Max(1, extensionsInitialCapacity)];
         }
@@ -60,11 +66,17 @@ namespace NUrumi
             var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
             if (valueSet == null)
             {
-                valueSet = new StorageValueSet<TValue>(_valuesSetInitialCapacity);
+                valueSet = new StorageValueSet<TValue>(
+                    Math.Max(_entitiesInitialCapacity, _context.EntitiesCount),
+                    _valuesInitialCapacity);
+
                 _valueSet[fieldIndex] = valueSet;
             }
 
-            return new FieldQuickAccess<TValue>(valueSet, fieldIndex);
+            return new FieldQuickAccess<TValue>(
+                GetComponentIndex(field.ComponentIndex),
+                valueSet,
+                fieldIndex);
         }
 
         public void Collect(Filter filter, List<int> destination)
@@ -245,7 +257,10 @@ namespace NUrumi
             var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
             if (valueSet == null)
             {
-                valueSet = new StorageValueSet<TValue>(_valuesSetInitialCapacity);
+                valueSet = new StorageValueSet<TValue>(
+                    Math.Max(_entitiesInitialCapacity, _context.EntitiesCount),
+                    _valuesInitialCapacity);
+
                 _valueSet[fieldIndex] = valueSet;
             }
 
@@ -270,6 +285,19 @@ namespace NUrumi
             return valueSet.Remove(entityId.Index, out oldValue);
         }
 
+        public void ResizeEntities(int newSize)
+        {
+            for (var i = 0; i < _components.Length; i++)
+            {
+                _components[i]?.ResizeEntities(newSize);
+            }
+
+            for (var i = 0; i < _valueSet.Length; i++)
+            {
+                _valueSet[i]?.ResizeEntities(newSize);
+            }
+        }
+
         private bool Has<TComponent>(TComponent component, int entityIndex)
             where TComponent : Component<TComponent>, new()
         {
@@ -285,6 +313,12 @@ namespace NUrumi
 
         private void AddComponentPresents(int entityIndex, int componentIndex)
         {
+            GetComponentIndex(componentIndex).Set(entityIndex, true, out _);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private StorageValueSet<bool> GetComponentIndex(int componentIndex)
+        {
             var components = _components;
             if (componentIndex >= components.Length)
             {
@@ -295,11 +329,14 @@ namespace NUrumi
             var ix = components[componentIndex];
             if (ix == null)
             {
-                ix = new StorageValueSet<bool>(10);
+                ix = new StorageValueSet<bool>(
+                    Math.Max(_entitiesInitialCapacity, _context.EntitiesCount),
+                    _valuesInitialCapacity);
+
                 components[componentIndex] = ix;
             }
 
-            ix.Set(entityIndex, true, out _);
+            return ix;
         }
     }
 }

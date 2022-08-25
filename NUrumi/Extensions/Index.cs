@@ -111,12 +111,13 @@ namespace NUrumi.Extensions
     public static class IndexCompanion
     {
         public static IReadOnlyCollection<EntityId> FindWith<TComponent, TValue>(
-            this Storage storage,
+            this Context context,
             Func<TComponent, FieldWith<Index<TValue>, TValue>> field,
             TValue value)
             where TComponent : Component<TComponent>, new()
             where TValue : IEquatable<TValue>
         {
+            var storage = context.Storage;
             if (!storage.TryGet<IndexExtension<TValue>>(out var extension))
             {
                 return Array.Empty<EntityId>();

@@ -6,9 +6,11 @@ namespace NUrumi
         where TBehaviour : IFieldBehaviour<TValue>, new()
     {
         private int _index;
+        private int _componentIndex;
 
         public int Index => _index;
         public string Name { get; private set; }
+        public int ComponentIndex => _componentIndex;
 
         public bool TryGet<TComponent>(Storage storage, EntityId entityId, TComponent component, out TValue value)
             where TComponent : Component<TComponent>, new()
@@ -51,9 +53,10 @@ namespace NUrumi
             return Remove(storage, entityId);
         }
 
-        void IField.SetMetaData(int index, string name)
+        void IField.SetMetaData(int index, int componentIndex, string name)
         {
             _index = index;
+            _componentIndex = componentIndex;
             Name = name;
         }
     }
@@ -61,6 +64,7 @@ namespace NUrumi
     public interface IField<TValue>
     {
         int Index { get; }
+        int ComponentIndex { get; }
 
         bool TryGet<TComponent>(Storage storage, EntityId entityId, TComponent component, out TValue value)
             where TComponent : Component<TComponent>, new();
@@ -70,13 +74,14 @@ namespace NUrumi
 
         bool Remove(Storage storage, EntityId entityId);
     }
-    
+
     internal interface IField
     {
         int Index { get; }
         string Name { get; }
+        int ComponentIndex { get; }
 
-        void SetMetaData(int index, string name);
+        void SetMetaData(int index, int componentIndex, string name);
         bool Remove(Storage storage, EntityId entityId);
     }
 

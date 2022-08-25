@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Numerics;
 using NUnit.Framework;
-using NUrumi.Storages.Safe;
 
 namespace NUrumi.Test
 {
@@ -13,12 +12,13 @@ namespace NUrumi.Test
         
         private readonly Context _urumi;
         private readonly Filter _urumiFilter;
+        private readonly List<Entity> _entitiesToMove = new List<Entity>();
 
         public ProfilerTest()
         {
             const int entitiesCount = 1000000;
 
-            _urumi = new Context(new Storage());
+            _urumi = new Context();
             _urumiFilter = Filter.With<UrumiVelocity>();
 
             var random = new Random();
@@ -34,20 +34,22 @@ namespace NUrumi.Test
                     entity.With<UrumiVelocity>().Set(_ => _.Value, velocity);
                 }
             }
+            
+            _urumi.Collect(_urumiFilter, _entitiesToMove);
         }
         
         [Test]
         public void Test()
         {
-            var entitiesToMove = new List<Entity>();
-            _urumi.Collect(_urumiFilter, entitiesToMove);
+            var velocityQuickAccess = _urumi.QuickAccessOf<UrumiVelocity, Vector2>(_ => _.Value);
+            var positionQuickAccess = _urumi.QuickAccessOf<UrumiPosition, Vector2>(_ => _.Value);
 
             var stub = 0;
-            foreach (var entity in entitiesToMove)
+            foreach (var entity in _entitiesToMove)
             {
-                var velocity = entity.With<UrumiVelocity>().Get(_ => _.Value);
-                var position = entity.With<UrumiPosition>().Get(_ => _.Value);
-                entity.With<UrumiPosition>().Set(_ => _.Value, position + velocity);
+                var velocity = velocityQuickAccess.Get(entity.Id);
+                var position = positionQuickAccess.Get(entity.Id);
+                positionQuickAccess.Set(entity.Id, position + velocity);
                 stub += (int) velocity.X;
             }
 
