@@ -2,7 +2,7 @@
 
 namespace NUrumi.Storages.Safe
 {
-    public sealed class SafeValueSet<TValue>
+    public sealed class StorageValueSet<TValue>
     {
         private const int None = -1;
 
@@ -10,7 +10,7 @@ namespace NUrumi.Storages.Safe
         private TValue[] _values;
         private int _freeValues;
 
-        public SafeValueSet(int initialCapacity)
+        public StorageValueSet(int initialCapacity)
         {
             _entityIndex = new int[initialCapacity];
             ReverseIndex = new int[initialCapacity];

@@ -1,23 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace NUrumi
 {
     public sealed class Context
     {
-        private const int DeadGen = 0;
+        private const short DeadGen = 0;
+        private const short GenInc = 1;
 
         private readonly List<int> _reusableCollector = new List<int>();
         private readonly Queue<EntityId> _freeEntities = new Queue<EntityId>();
-        private readonly IStorage _storage;
+        private readonly Storage _storage;
         private readonly int _entityReuseBarrier;
-        private int[] _aliveEntities;
+        private short[] _aliveEntities;
         private int _nextEntityIndex;
 
-        public Context(IStorage storage, int entityInitialCapacity = 100, int entityReuseBarrier = 1000)
+        public Context(Storage storage, int entityInitialCapacity = 512, int entityReuseBarrier = 1000)
         {
             _storage = storage;
-            _aliveEntities = new int[Math.Max(1, entityInitialCapacity)];
+            _aliveEntities = new short[Math.Max(1, entityInitialCapacity)];
             _entityReuseBarrier = entityReuseBarrier;
         }
 
@@ -57,6 +59,7 @@ namespace NUrumi
             _freeEntities.Enqueue(id);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Get(EntityId id)
         {
             if (Find(id, out var entity))
@@ -70,6 +73,7 @@ namespace NUrumi
                 $"entity_gen={id.Generation})");
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Find(EntityId id, out Entity entity)
         {
             if (!IsAlive(id))
@@ -80,6 +84,12 @@ namespace NUrumi
 
             entity = new Entity(this, _storage, id);
             return true;
+        }
+        
+        public FieldQuickAccess<TValue> QuickAccessOf<TComponent, TValue>(Func<TComponent, IField<TValue>> field)
+            where TComponent : Component<TComponent>, new()
+        {
+            return _storage.GetFieldQuickAccess(field(Component.InstanceOf<TComponent>()));
         }
 
         public void Collect(Filter filter, List<EntityId> destination)
@@ -102,6 +112,7 @@ namespace NUrumi
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsAlive(EntityId entityId)
         {
             var index = entityId.Index;
@@ -118,14 +129,13 @@ namespace NUrumi
             var index = entityId.Index;
             if (index >= _aliveEntities.Length)
             {
-                var newAliveEntities = new int[index << 1];
-                Array.Copy(_aliveEntities, newAliveEntities, _aliveEntities.Length);
-                _aliveEntities = newAliveEntities;
+                Array.Resize(ref _aliveEntities, index << 1);
             }
 
             _aliveEntities[index] = entityId.Generation;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsFree(int entityIndex)
         {
             if (entityIndex >= _aliveEntities.Length)
@@ -143,7 +153,7 @@ namespace NUrumi
                 var id = _freeEntities.Dequeue();
                 if (IsFree(id.Index))
                 {
-                    return new EntityId(id.Index, id.Generation + 1);
+                    return new EntityId(id.Index, (short)(id.Generation + GenInc));
                 }
             }
 

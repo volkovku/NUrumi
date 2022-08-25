@@ -8,7 +8,7 @@ namespace NUrumi.Extensions
         where TValue : IEquatable<TValue>
     {
         public bool TryGet<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
@@ -19,7 +19,7 @@ namespace NUrumi.Extensions
         }
 
         public void Set<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
@@ -40,7 +40,7 @@ namespace NUrumi.Extensions
             extension.Set(fieldIndex, entityId, value);
         }
 
-        public bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
+        public bool Remove(Storage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
         {
             if (!storage.TryGet<IndexExtension<TValue>>(out var extension))
             {
@@ -56,12 +56,62 @@ namespace NUrumi.Extensions
 
             return false;
         }
+
+        public bool TryGet(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue value)
+        {
+            return quickAccess.TryGet(entityId, out value);
+        }
+
+        public void Set(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            TValue value)
+        {
+            if (!storage.TryGet<IndexExtension<TValue>>(out var extension))
+            {
+                extension = new IndexExtension<TValue>();
+                storage.Add(extension);
+            }
+
+            if (!quickAccess.Set(entityId, value, out var oldValue))
+            {
+                extension.Remove(quickAccess.FieldIndex, entityId, oldValue);
+            }
+
+            extension.Set(quickAccess.FieldIndex, entityId, value);
+        }
+
+        public bool Remove(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue oldValue)
+        {
+            if (!storage.TryGet<IndexExtension<TValue>>(out var extension))
+            {
+                extension = new IndexExtension<TValue>();
+                storage.Add(extension);
+            }
+
+            if (quickAccess.Remove(entityId, out oldValue))
+            {
+                extension.Remove(quickAccess.FieldIndex, entityId, oldValue);
+                return true;
+            }
+
+            return false;
+        }
     }
 
     public static class IndexCompanion
     {
         public static IReadOnlyCollection<EntityId> FindWith<TComponent, TValue>(
-            this IStorage storage,
+            this Storage storage,
             Func<TComponent, FieldWith<Index<TValue>, TValue>> field,
             TValue value)
             where TComponent : Component<TComponent>, new()

@@ -1,26 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using NUrumi.Extensions;
+using NUrumi.Storages.Safe;
 
-namespace NUrumi.Storages.Safe
+namespace NUrumi
 {
-    public sealed class SafeStorage : IStorage
+    public sealed class Storage 
     {
         private readonly int _valuesSetInitialCapacity;
 
         private object[] _extensions;
-        private SafeValueSet<bool>[] _components;
+        private StorageValueSet<bool>[] _components;
         private object[] _valueSet;
 
-        public SafeStorage(
-            int componentsInitialCapacity = 100,
-            int fieldsInitialCapacity = 100,
-            int valuesSetInitialCapacity = 100,
-            int extensionsInitialCapacity = 5)
+        public Storage(
+            int componentsInitialCapacity = 512,
+            int fieldsInitialCapacity = 512,
+            int valuesSetInitialCapacity = 512,
+            int extensionsInitialCapacity = 512)
         {
             _valuesSetInitialCapacity = valuesSetInitialCapacity;
             _valueSet = new object[Math.Max(1, fieldsInitialCapacity)];
-            _components = new SafeValueSet<bool>[Math.Max(1, componentsInitialCapacity)];
+            _components = new StorageValueSet<bool>[Math.Max(1, componentsInitialCapacity)];
             _extensions = new object[Math.Max(1, extensionsInitialCapacity)];
         }
 
@@ -29,9 +30,7 @@ namespace NUrumi.Storages.Safe
             var extensionIndex = extension.Index;
             if (_extensions.Length <= extensionIndex)
             {
-                var newExtensions = new object[extensionIndex * 2];
-                Array.Copy(_extensions, newExtensions, _extensions.Length);
-                _extensions = newExtensions;
+                Array.Resize(ref _extensions, extensionIndex << 1);
             }
 
             _extensions[extensionIndex] = extension;
@@ -50,9 +49,27 @@ namespace NUrumi.Storages.Safe
             return extension != null;
         }
 
+        public FieldQuickAccess<TValue> GetFieldQuickAccess<TValue>(IField<TValue> field)
+        {
+            var fieldIndex = field.Index;
+            if (fieldIndex >= _valueSet.Length)
+            {
+                Array.Resize(ref _valueSet, fieldIndex << 1);
+            }
+
+            var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
+            if (valueSet == null)
+            {
+                valueSet = new StorageValueSet<TValue>(_valuesSetInitialCapacity);
+                _valueSet[fieldIndex] = valueSet;
+            }
+
+            return new FieldQuickAccess<TValue>(valueSet, fieldIndex);
+        }
+
         public void Collect(Filter filter, List<int> destination)
         {
-            SafeValueSet<bool> setOfEntities = null;
+            StorageValueSet<bool> setOfEntities = null;
 
             var baseLineIndex = 0;
             foreach (var componentIndex in filter.Include)
@@ -197,10 +214,16 @@ namespace NUrumi.Storages.Safe
                 return false;
             }
 
-            var valueSet = (SafeValueSet<TValue>) _valueSet[fieldIndex];
+            var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
             if (valueSet.TryGet(entityId.Index, out value))
             {
                 return true;
+            }
+
+            var internalComponent = (IInternalComponent) component;
+            if (internalComponent.Fields.Count == 1)
+            {
+                return false;
             }
 
             return Has(component, entityId.Index);
@@ -216,15 +239,13 @@ namespace NUrumi.Storages.Safe
         {
             if (fieldIndex >= _valueSet.Length)
             {
-                var newValueSet = new object[fieldIndex * 2];
-                Array.Copy(_valueSet, newValueSet, _valueSet.Length);
-                _valueSet = newValueSet;
+                Array.Resize(ref _valueSet, fieldIndex << 1);
             }
 
-            var valueSet = (SafeValueSet<TValue>) _valueSet[fieldIndex];
+            var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
             if (valueSet == null)
             {
-                valueSet = new SafeValueSet<TValue>(_valuesSetInitialCapacity);
+                valueSet = new StorageValueSet<TValue>(_valuesSetInitialCapacity);
                 _valueSet[fieldIndex] = valueSet;
             }
 
@@ -245,7 +266,7 @@ namespace NUrumi.Storages.Safe
                 return false;
             }
 
-            var valueSet = (SafeValueSet<TValue>) _valueSet[fieldIndex];
+            var valueSet = (StorageValueSet<TValue>) _valueSet[fieldIndex];
             return valueSet.Remove(entityId.Index, out oldValue);
         }
 
@@ -264,18 +285,18 @@ namespace NUrumi.Storages.Safe
 
         private void AddComponentPresents(int entityIndex, int componentIndex)
         {
-            if (componentIndex >= _components.Length)
+            var components = _components;
+            if (componentIndex >= components.Length)
             {
-                var newComponents = new SafeValueSet<bool>[componentIndex << 1];
-                Array.Copy(_components, newComponents, _components.Length);
-                _components = newComponents;
+                Array.Resize(ref _components, componentIndex << 1);
+                components = _components;
             }
 
-            var ix = _components[componentIndex];
+            var ix = components[componentIndex];
             if (ix == null)
             {
-                ix = new SafeValueSet<bool>(10);
-                _components[componentIndex] = ix;
+                ix = new StorageValueSet<bool>(10);
+                components[componentIndex] = ix;
             }
 
             ix.Set(entityIndex, true, out _);

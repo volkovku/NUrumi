@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace NUrumi
 {
@@ -14,13 +15,15 @@ namespace NUrumi
                 new HashSet<int>());
         }
 
-        public IReadOnlyCollection<int> Include => _include;
-        public IReadOnlyCollection<int> Exclude => _exclude;
+        public readonly int[] Include;
+        public readonly int[] Exclude;
 
         private Filter(HashSet<int> include, HashSet<int> exclude)
         {
             _include = include;
             _exclude = exclude;
+            Include = include.ToArray();
+            Exclude = exclude.ToArray();
         }
 
         public Filter And<TComponent>() where TComponent : Component<TComponent>, new()

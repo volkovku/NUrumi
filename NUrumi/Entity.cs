@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace NUrumi
@@ -9,7 +10,7 @@ namespace NUrumi
     public readonly struct Entity
     {
         private readonly Context _context;
-        private readonly IStorage _storage;
+        private readonly Storage _storage;
 
         /// <summary>
         /// Initializes a new instance of reference on an entity in a context.
@@ -17,7 +18,7 @@ namespace NUrumi
         /// <param name="context">A context where entity live.</param>
         /// <param name="storage">A context storage.</param>
         /// <param name="id">An identifier of an entity.</param>
-        public Entity(Context context, IStorage storage, EntityId id)
+        public Entity(Context context, Storage storage, EntityId id)
         {
             _context = context;
             _storage = storage;
@@ -36,7 +37,9 @@ namespace NUrumi
         /// <returns>Returns true if entity has component otherwise returns false.</returns>
         public bool Has<TComponent>() where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             return _storage.Has<TComponent>(Id);
         }
 
@@ -47,7 +50,9 @@ namespace NUrumi
         /// <returns>True if component was removed otherwise false.</returns>
         public bool Remove<TComponent>() where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             return _storage.Remove<TComponent>(Id);
         }
 
@@ -62,7 +67,9 @@ namespace NUrumi
         public TValue Get<TComponent, TValue>(Func<TComponent, IField<TValue>> field)
             where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             var component = Component.InstanceOf<TComponent>();
             if (!field(component).TryGet(_storage, Id, component, out var value))
             {
@@ -79,7 +86,9 @@ namespace NUrumi
         public bool TryGet<TComponent, TValue>(Func<TComponent, IField<TValue>> field, out TValue value)
             where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             var component = Component.InstanceOf<TComponent>();
             return field(component).TryGet(_storage, Id, component, out value);
         }
@@ -87,17 +96,26 @@ namespace NUrumi
         public void Set<TComponent, TValue>(Func<TComponent, IField<TValue>> field, TValue value)
             where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             var component = Component.InstanceOf<TComponent>();
             field(component).Set(_storage, Id, component, value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public With<TComponent> With<TComponent>()
             where TComponent : Component<TComponent>, new()
         {
+#if DEBUG
             EnsureAlive();
+#endif
             var component = Component.InstanceOf<TComponent>();
+#if DEBUG
             return new With<TComponent>(Id, _context, _storage, component);
+#else
+            return new With<TComponent>(Id, _storage, component);
+#endif
         }
 
         public void Destroy()
@@ -109,6 +127,7 @@ namespace NUrumi
         {
         }
 
+#if DEBUG
         private void EnsureAlive()
         {
             if (!_context.IsAlive(Id))
@@ -119,5 +138,6 @@ namespace NUrumi
                     $"entity_gen={Id.Generation})");
             }
         }
+#endif
     }
 }

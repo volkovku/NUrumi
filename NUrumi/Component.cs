@@ -1,16 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace NUrumi
 {
     public static class Component
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static TComponent InstanceOf<TComponent>() where TComponent : Component<TComponent>, new()
         {
             return ComponentIndex<TComponent>.Instance;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static IInternalComponent InstanceOf(int componentIndex)
         {
             return ComponentIndex.Get(componentIndex);
@@ -69,6 +72,7 @@ namespace NUrumi
         private static int _nextIndex;
         private static IInternalComponent[] _components = new IInternalComponent[10];
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static IInternalComponent Get(int componentIndex)
         {
             return _components[componentIndex];
@@ -78,9 +82,7 @@ namespace NUrumi
         {
             if (componentIndex >= _components.Length)
             {
-                var newComponents = new IInternalComponent[componentIndex << 1];
-                Array.Copy(_components, newComponents, _components.Length);
-                _components = newComponents;
+                Array.Resize(ref _components, componentIndex << 1);
             }
 
             _components[componentIndex] = component;

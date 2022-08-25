@@ -3,7 +3,7 @@
     public interface IFieldBehaviour<TValue>
     {
         bool TryGet<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
@@ -11,13 +11,35 @@
             where TComponent : Component<TComponent>, new();
 
         void Set<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
             TValue value)
             where TComponent : Component<TComponent>, new();
 
-        bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue);
+        bool Remove(
+            Storage storage,
+            EntityId entityId,
+            int fieldIndex,
+            out TValue oldValue);
+
+        bool TryGet(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue value);
+
+        void Set(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            TValue value);
+
+        bool Remove(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue oldValue);
     }
 }

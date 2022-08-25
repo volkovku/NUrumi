@@ -14,7 +14,7 @@ namespace NUrumi.Test
         [Test]
         public void EntityBasics()
         {
-            var storage = new SafeStorage(
+            var storage = new Storage(
                 componentsInitialCapacity: 1,
                 fieldsInitialCapacity: 1,
                 extensionsInitialCapacity: 1,
@@ -56,7 +56,7 @@ namespace NUrumi.Test
         [Test]
         public void EntityLivecycle()
         {
-            var context = new Context(new SafeStorage());
+            var context = new Context(new Storage());
             var entity = context.Create();
             Assert.AreEqual(true, context.IsAlive(entity.Id));
 
@@ -89,7 +89,7 @@ namespace NUrumi.Test
         {
             const int reuseBarrier = 100;
 
-            var context = new Context(new SafeStorage(), entityReuseBarrier: reuseBarrier);
+            var context = new Context(new Storage(), entityReuseBarrier: reuseBarrier);
             var usedIndexes = new HashSet<int>();
             for (var i = 0; i < reuseBarrier; i++)
             {
@@ -145,7 +145,7 @@ namespace NUrumi.Test
         [Test]
         public void EntitySimpleFilter()
         {
-            var context = new Context(new SafeStorage());
+            var context = new Context(new Storage());
 
             for (var i = 1; i <= 100; i++)
             {

@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NUrumi", "NUrumi\NUrumi.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NUrumi.Test", "NUrumi.Test\NUrumi.Test.csproj", "{3E223D29-2027-4020-A4DE-30A844C50D85}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NUrumi.Benchmark", "NUrumi.Benchmark\NUrumi.Benchmark.csproj", "{67227FF9-C865-4EA8-8B91-25B835BDD86D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{3E223D29-2027-4020-A4DE-30A844C50D85}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3E223D29-2027-4020-A4DE-30A844C50D85}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3E223D29-2027-4020-A4DE-30A844C50D85}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67227FF9-C865-4EA8-8B91-25B835BDD86D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67227FF9-C865-4EA8-8B91-25B835BDD86D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67227FF9-C865-4EA8-8B91-25B835BDD86D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67227FF9-C865-4EA8-8B91-25B835BDD86D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

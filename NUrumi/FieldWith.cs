@@ -10,7 +10,7 @@ namespace NUrumi
         public int Index => _index;
         public string Name { get; private set; }
 
-        public bool TryGet<TComponent>(IStorage storage, EntityId entityId, TComponent component, out TValue value)
+        public bool TryGet<TComponent>(Storage storage, EntityId entityId, TComponent component, out TValue value)
             where TComponent : Component<TComponent>, new()
         {
             return FieldBehaviours<TBehaviour, TValue>.Instance.TryGet(
@@ -21,7 +21,7 @@ namespace NUrumi
                 out value);
         }
 
-        public void Set<TComponent>(IStorage storage, EntityId entityId, TComponent component, TValue value)
+        public void Set<TComponent>(Storage storage, EntityId entityId, TComponent component, TValue value)
             where TComponent : Component<TComponent>, new()
         {
             FieldBehaviours<TBehaviour, TValue>.Instance.Set(
@@ -32,7 +32,7 @@ namespace NUrumi
                 value);
         }
 
-        private bool Remove(IStorage storage, EntityId entityId)
+        private bool Remove(Storage storage, EntityId entityId)
         {
             return FieldBehaviours<TBehaviour, TValue>.Instance.Remove(
                 storage,
@@ -41,12 +41,12 @@ namespace NUrumi
                 out _);
         }
 
-        bool IField.Remove(IStorage storage, EntityId entityId)
+        bool IField.Remove(Storage storage, EntityId entityId)
         {
             return Remove(storage, entityId);
         }
 
-        bool IField<TValue>.Remove(IStorage storage, EntityId entityId)
+        bool IField<TValue>.Remove(Storage storage, EntityId entityId)
         {
             return Remove(storage, entityId);
         }
@@ -60,13 +60,15 @@ namespace NUrumi
 
     public interface IField<TValue>
     {
-        bool TryGet<TComponent>(IStorage storage, EntityId entityId, TComponent component, out TValue value)
+        int Index { get; }
+
+        bool TryGet<TComponent>(Storage storage, EntityId entityId, TComponent component, out TValue value)
             where TComponent : Component<TComponent>, new();
 
-        void Set<TComponent>(IStorage storage, EntityId entityId, TComponent component, TValue value)
+        void Set<TComponent>(Storage storage, EntityId entityId, TComponent component, TValue value)
             where TComponent : Component<TComponent>, new();
 
-        bool Remove(IStorage storage, EntityId entityId);
+        bool Remove(Storage storage, EntityId entityId);
     }
     
     internal interface IField
@@ -75,7 +77,7 @@ namespace NUrumi
         string Name { get; }
 
         void SetMetaData(int index, string name);
-        bool Remove(IStorage storage, EntityId entityId);
+        bool Remove(Storage storage, EntityId entityId);
     }
 
     internal static class FieldIndex

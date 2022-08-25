@@ -3,7 +3,7 @@
     public sealed class Default<TValue> : IFieldBehaviour<TValue>
     {
         public bool TryGet<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
@@ -14,7 +14,7 @@
         }
 
         public void Set<TComponent>(
-            IStorage storage,
+            Storage storage,
             EntityId entityId,
             TComponent component,
             int fieldIndex,
@@ -24,9 +24,36 @@
             storage.Set(entityId, component, fieldIndex, value, out _);
         }
 
-        public bool Remove(IStorage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
+        public bool Remove(Storage storage, EntityId entityId, int fieldIndex, out TValue oldValue)
         {
             return storage.Remove(entityId, fieldIndex, out oldValue);
+        }
+
+        public bool TryGet(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue value)
+        {
+            return quickAccess.TryGet(entityId, out value);
+        }
+
+        public void Set(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            TValue value)
+        {
+            quickAccess.Set(entityId, value, out _);
+        }
+
+        public bool Remove(
+            Storage storage,
+            FieldQuickAccess<TValue> quickAccess,
+            EntityId entityId,
+            out TValue oldValue)
+        {
+            return quickAccess.Remove(entityId, out oldValue);
         }
     }
 }

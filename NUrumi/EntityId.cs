@@ -4,14 +4,14 @@ namespace NUrumi
 {
     public struct EntityId : IEquatable<EntityId>
     {
-        public EntityId(int index, int generation)
+        public EntityId(int index, short generation)
         {
             Index = index;
             Generation = generation;
         }
 
         public readonly int Index;
-        public readonly int Generation;
+        public readonly short Generation;
 
         public bool Equals(EntityId other)
         {
