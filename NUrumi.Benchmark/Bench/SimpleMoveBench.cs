@@ -1,29 +1,32 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
+using Entitas;
 using Leopotam.EcsLite;
 
 namespace NUrumi.Benchmark.Bench
 {
     public class SimpleMoveBench
     {
-        private const int EntitiesCount = 1000000;
+        private const int EntitiesCount = 100000;
 
-        private readonly Context _urumi;
-        private readonly Filter _urumiFilter;
-        private readonly List<Entity> _entitiesToMove;
-
+        private readonly Context<UrumiRegistry> _urumi;
         private readonly EcsWorld _leo;
         private readonly EcsFilter _leoFilter;
 
+        private GameContext _entitas;
+        private IGroup<GameEntity> _entitasGroup;
+
         public SimpleMoveBench()
         {
-            _urumi = new Context();
-            _urumiFilter = Filter.With<UrumiVelocity>();
+            _urumi = new Context<UrumiRegistry>();
+            var cmp = _urumi.Registry;
 
             _leo = new EcsWorld();
             _leoFilter = _leo.Filter<LeoPosition>().End();
+
+            _entitas = new GameContext();
+            _entitasGroup = _entitas.GetGroup(GameMatcher.PerfTestEntitasPosition);
 
             var leoPosPool = _leo.GetPool<LeoPosition>();
             var leoVelocityPool = _leo.GetPool<LeoVelocity>();
@@ -34,38 +37,45 @@ namespace NUrumi.Benchmark.Bench
                 var position = new Vector2(random.Next(), random.Next());
                 var velocity = new Vector2(random.Next(), random.Next());
 
-                var urumi = _urumi.Create();
-                urumi.With<UrumiPosition>().Set(_ => _.Value, position);
+                var urumi = _urumi.CreateEntity();
+                _urumi.Set(cmp.Position.Value, urumi, position);
 
                 var leo = _leo.NewEntity();
                 ref var leoPos = ref leoPosPool.Add(leo);
                 leoPos.Value = position;
 
+                var ent = _entitas.CreateEntity();
+                ent.AddPerfTestEntitasPosition(position);
+
                 if (i % 2 == 0)
                 {
-                    urumi.With<UrumiVelocity>().Set(_ => _.Value, velocity);
+                    _urumi.Set(cmp.Velocity.Value, urumi, velocity);
                     ref var leoVelocity = ref leoVelocityPool.Add(leo);
                     leoVelocity.Value = velocity;
+                    ent.AddPerfTestEntitasVelocity(velocity);
                 }
             }
-            
-            _entitiesToMove = new List<Entity>();
-            _urumi.Collect(_urumiFilter, _entitiesToMove);
-
         }
 
         [Benchmark]
         public int Urumi()
         {
-            var velocityQuickAccess = _urumi.QuickAccessOf<UrumiVelocity, Vector2>(_ => _.Value);
-            var positionQuickAccess = _urumi.QuickAccessOf<UrumiPosition, Vector2>(_ => _.Value);
-
             var stub = 0;
-            foreach (var entity in _entitiesToMove)
+            var cmp = _urumi.Registry;
+            var velocityCmp = cmp.Velocity;
+            var positionField = cmp.Position.Value;
+            var velocityField = cmp.Velocity.Value;
+            
+            for (var i = 0; i < EntitiesCount; i++)
             {
-                var velocity = velocityQuickAccess.Get(entity.Id);
-                var position = positionQuickAccess.Get(entity.Id);
-                positionQuickAccess.Set(entity.Id, position + velocity);
+                if (!velocityCmp.Contains(i))
+                {
+                    continue;
+                }
+
+                ref var velocity = ref velocityField.GetRef(i);
+                ref var position = ref positionField.GetRef(i);
+                position += velocity;
                 stub += (int) velocity.X;
             }
 
@@ -82,6 +92,11 @@ namespace NUrumi.Benchmark.Bench
 
             foreach (var entity in _leoFilter)
             {
+                if (!leoVelocityPool.Has(entity))
+                {
+                    continue;
+                }
+
                 ref var velocity = ref leoVelocityPool.Get(entity);
                 ref var position = ref leoPosPool.Get(entity);
                 position.Value += velocity.Value;
@@ -91,14 +106,40 @@ namespace NUrumi.Benchmark.Bench
             return stub;
         }
 
+        [Benchmark]
+        public int Entitas()
+        {
+            var stub = 0;
+
+            foreach (var entity in _entitasGroup)
+            {
+                if (!entity.hasPerfTestEntitasVelocity)
+                {
+                    continue;
+                }
+
+                var velocity = entity.perfTestEntitasVelocity.Value;
+                entity.perfTestEntitasPosition.Value += velocity;
+                stub += (int) velocity.X;
+            }
+
+            return stub;
+        }
+
+        private class UrumiRegistry : Registry<UrumiRegistry>
+        {
+            public UrumiPosition Position;
+            public UrumiVelocity Velocity;
+        }
+
         private class UrumiPosition : Component<UrumiPosition>
         {
-            public FieldWith<Default<Vector2>, Vector2> Value;
+            public Field<Vector2> Value;
         }
 
         private class UrumiVelocity : Component<UrumiVelocity>
         {
-            public FieldWith<Default<Vector2>, Vector2> Value;
+            public Field<Vector2> Value;
         }
 
         private struct LeoPosition

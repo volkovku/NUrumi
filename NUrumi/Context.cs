@@ -4,184 +4,204 @@ using System.Runtime.CompilerServices;
 
 namespace NUrumi
 {
-    public sealed class Context
+    public sealed class Context<TRegistry> where TRegistry : Registry<TRegistry>, new()
     {
-        private const short DeadGen = 0;
-        private const short GenInc = 1;
+        private readonly UnsafeComponentStorage[] _componentStorages;
+        private readonly int _reuseEntitiesBarrier;
+        private readonly Queue<int> _recycledEntities;
 
-        private readonly List<int> _reusableCollector = new List<int>();
-        private readonly Queue<EntityId> _freeEntities = new Queue<EntityId>();
-        private readonly Storage _storage;
-        private readonly int _entityReuseBarrier;
-        private short[] _entities;
-        private int _nextEntityIndex;
+        private int[] _entities;
         private int _entitiesCount;
 
-        public Context(int entityInitialCapacity = 512, int entityReuseBarrier = 1000)
+        public Context(TRegistry registry = null, Config config = null)
         {
+            if (config == null)
+            {
+                config = new Config();
+            }
+
+            if (registry == null)
+            {
+                registry = Activator.CreateInstance<TRegistry>();
+            }
+
+            Registry = registry;
+            _entities = new int[config.InitialEntitiesCapacity];
             _entitiesCount = 0;
-            _entities = new short[Math.Max(1, entityInitialCapacity)];
-            _entityReuseBarrier = entityReuseBarrier;
-            _storage = new Storage(this, entityInitialCapacity);
+            _recycledEntities = new Queue<int>();
+            _reuseEntitiesBarrier = config.InitialReuseEntitiesBarrier;
+            _componentStorages = InitRegistry(registry, config);
         }
 
-        public int EntitiesCount => _entitiesCount;
-        public Storage Storage => _storage;
+        public readonly TRegistry Registry;
+        public int LiveEntitiesCount => _entitiesCount - _recycledEntities.Count;
+        public int RecycledEntitiesCount => _recycledEntities.Count;
 
-        public Entity Create()
+        private static UnsafeComponentStorage[] InitRegistry(TRegistry registry, Config config)
         {
-            var id = GetEntityId();
-            SetAlive(id);
-            _entitiesCount += 1;
-            return new Entity(this, _storage, id);
-        }
-
-        public Entity Create(EntityId id)
-        {
-            if (!IsFree(id.Index))
+            var componentIndex = 0;
+            var componentStorages = new List<UnsafeComponentStorage>();
+            var registryType = typeof(TRegistry);
+            foreach (var componentFieldInfo in registryType.GetFields())
             {
-                throw new NUrumiException(
-                    "Entity index already in use (" +
-                    $"entity_ix={id.Index}," +
-                    $"entity_gen={id.Generation})");
+                var componentType = componentFieldInfo.FieldType;
+                if (!typeof(IComponent).IsAssignableFrom(componentType))
+                {
+                    continue;
+                }
+
+                var component = (IComponent) Activator.CreateInstance(componentFieldInfo.FieldType);
+                componentFieldInfo.SetValue(registry, component);
+
+                var componentSize = 0;
+                foreach (var valueFieldInfo in componentType.GetFields())
+                {
+                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
+                    {
+                        continue;
+                    }
+                    
+                    var valueField =
+                        (IField) valueFieldInfo.GetValue(component)
+                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
+
+                    var valueSize = valueField.ValueSize;
+                    componentSize += valueSize;
+                }
+
+                var storage = new UnsafeComponentStorage(
+                    componentSize,
+                    config.InitialEntitiesCapacity,
+                    config.InitialComponentRecordsCapacity,
+                    config.InitialComponentRecycledRecordsCapacity);
+
+                var fieldIndex = 0;
+                var fieldOffset = 0;
+                var fields = new List<IField>();
+                foreach (var valueFieldInfo in componentType.GetFields())
+                {
+                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
+                    {
+                        continue;
+                    }
+                    
+                    var valueField =
+                        (IField) valueFieldInfo.GetValue(component)
+                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
+
+                    var valueSize = valueField.ValueSize;
+                    valueField.Init(fieldIndex, fieldOffset, storage);
+                    valueFieldInfo.SetValue(component, valueField);
+
+                    fieldIndex += 1;
+                    fieldOffset += valueSize;
+                    fields.Add(valueField);
+                }
+
+                component.Init(componentIndex, fields.ToArray(), storage);
+                componentStorages.Add(storage);
+                componentIndex += 1;
             }
 
-            SetAlive(id);
-            _entitiesCount += 1;
-            return new Entity(this, _storage, id);
+            return componentStorages.ToArray();
         }
 
-        public void Destroy(EntityId id)
+        public long CreateEntity()
         {
-            if (!IsAlive(id))
+            int entityIndex;
+            if (_recycledEntities.Count >= _reuseEntitiesBarrier)
             {
-                throw new NUrumiException(
-                    "Entity not exists or destroyed (" +
-                    $"entity_ix={id.Index}," +
-                    $"entity_gen={id.Generation})");
+                entityIndex = _recycledEntities.Dequeue();
+                ref var gen = ref _entities[entityIndex];
+                gen = -gen + 1;
+                return EntityId.Create(gen, entityIndex);
             }
 
-            _storage.RemoveEntity(id);
-            _entities[id.Index] = DeadGen;
-            _freeEntities.Enqueue(id);
-            _entitiesCount -= 1;
+            entityIndex = _entitiesCount;
+            if (entityIndex == _entities.Length)
+            {
+                var newSize = entityIndex << 1;
+                Array.Resize(ref _entities, newSize);
+                for (var i = 0; i < _componentStorages.Length; i++)
+                {
+                    _componentStorages[i].ResizeEntities(newSize);
+                }
+            }
+
+            _entities[entityIndex] = 1;
+            _entitiesCount += 1;
+
+            return EntityId.Create(1, entityIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Entity Get(EntityId id)
+        public bool IsAlive(long entityId)
         {
-            if (Find(id, out var entity))
-            {
-                return entity;
-            }
-
-            throw new NUrumiException(
-                "Entity not exists of destroyed (" +
-                $"entity_ix={id.Index}," +
-                $"entity_gen={id.Generation})");
+            return _entities[EntityId.Index(entityId)] == EntityId.Gen(entityId);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Find(EntityId id, out Entity entity)
+        public bool RemoveEntity(long entityId)
         {
-            if (!IsAlive(id))
+            var entityIndex = EntityId.Index(entityId);
+            ref var gen = ref _entities[entityIndex];
+            if (gen <= 0)
             {
-                entity = default;
                 return false;
             }
 
-            entity = new Entity(this, _storage, id);
+            gen *= -1;
+            _recycledEntities.Enqueue(entityIndex);
+
+            var componentStorages = _componentStorages;
+            for (var i = 0; i < componentStorages.Length; i++)
+            {
+                var storage = componentStorages[i];
+                storage.Remove(entityIndex);
+            }
+
             return true;
         }
 
-        public FieldQuickAccess<TValue> QuickAccessOf<TComponent, TValue>(Func<TComponent, IField<TValue>> field)
+        public TValue Get<TField, TValue>(Func<TRegistry, TField> field, long entityId)
+            where TField : IField<TValue>
+            where TValue : unmanaged
+        {
+            EnsureAlive(entityId);
+            return field(Registry).Get(EntityId.Index(entityId));
+        }
+
+        public void Set<TField, TValue>(TField field, long entityId, TValue value)
+            where TField : IField<TValue>
+            where TValue : unmanaged
+        {
+            EnsureAlive(entityId);
+            field.Set(EntityId.Index(entityId), value);
+        }
+        
+        public void Set<TField, TValue>(Func<TRegistry, TField> field, long entityId, TValue value)
+            where TField : IField<TValue>
+            where TValue : unmanaged
+        {
+            EnsureAlive(entityId);
+            field(Registry).Set(EntityId.Index(entityId), value);
+        }
+
+        public bool Has<TComponent>(Func<TRegistry, TComponent> component, long entityId)
             where TComponent : Component<TComponent>, new()
         {
-            return _storage.GetFieldQuickAccess(field(Component.InstanceOf<TComponent>()));
-        }
-
-        public void Collect(Filter filter, List<EntityId> destination)
-        {
-            _reusableCollector.Clear();
-            _storage.Collect(filter, _reusableCollector);
-            foreach (var entityIndex in _reusableCollector)
-            {
-                destination.Add(new EntityId(entityIndex, _entities[entityIndex]));
-            }
-        }
-
-        public void Collect(Filter filter, List<Entity> destination)
-        {
-            _reusableCollector.Clear();
-            _storage.Collect(filter, _reusableCollector);
-            foreach (var entityIndex in _reusableCollector)
-            {
-                destination.Add(Get(new EntityId(entityIndex, _entities[entityIndex])));
-            }
+            EnsureAlive(entityId);
+            return component(Registry).Contains(EntityId.Index(entityId));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsAlive(EntityId entityId)
+        private void EnsureAlive(long entityId)
         {
-            var index = entityId.Index;
-            if (index >= _entities.Length)
+            if (!IsAlive(entityId))
             {
-                return false;
-            }
-
-            return _entities[index] == entityId.Generation;
-        }
-
-        private void SetAlive(EntityId entityId)
-        {
-            var entityIndex = entityId.Index;
-            EnsureEntitiesSize(entityIndex);
-            _entities[entityIndex] = entityId.Generation;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureEntitiesSize(int entityIndex)
-        {
-            if (entityIndex < _entities.Length)
-            {
-                return;
-            }
-
-            var newSize = entityIndex << 1;
-            Array.Resize(ref _entities, newSize);
-            _storage.ResizeEntities(newSize);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IsFree(int entityIndex)
-        {
-            if (entityIndex >= _entities.Length)
-            {
-                return true;
-            }
-
-            return _entities[entityIndex] == DeadGen;
-        }
-
-        private EntityId GetEntityId()
-        {
-            while (_freeEntities.Count >= _entityReuseBarrier)
-            {
-                var id = _freeEntities.Dequeue();
-                if (IsFree(id.Index))
-                {
-                    return new EntityId(id.Index, (short) (id.Generation + GenInc));
-                }
-            }
-
-            while (true)
-            {
-                var entityIndex = _nextEntityIndex;
-                if (IsFree(entityIndex))
-                {
-                    _nextEntityIndex += 1;
-                    return new EntityId(entityIndex, 1);
-                }
+                throw new NUrumiException(
+                    "Access to dead entity (" +
+                    $"entity_index={EntityId.Index(entityId)}," +
+                    $"entity_gen={EntityId.Gen(entityId)})");
             }
         }
     }

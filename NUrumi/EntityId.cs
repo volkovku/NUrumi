@@ -1,44 +1,25 @@
-﻿using System;
+﻿using System.Runtime.CompilerServices;
 
 namespace NUrumi
 {
-    public struct EntityId : IEquatable<EntityId>
+    public static class EntityId
     {
-        public EntityId(int index, short generation)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long Create(int gen, int index)
         {
-            Index = index;
-            Generation = generation;
+            return ((long) gen << 32) + index;
         }
 
-        public readonly int Index;
-        public readonly short Generation;
-
-        public bool Equals(EntityId other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Gen(long id)
         {
-            return Index == other.Index && Generation == other.Generation;
+            return (int) (id >> 32);
         }
 
-        public override bool Equals(object obj)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Index(long id)
         {
-            return obj is EntityId other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (Index * 397) ^ Generation;
-            }
-        }
-
-        public static bool operator ==(EntityId left, EntityId right)
-        {
-            return left.Equals(right);
-        }
-
-        public static bool operator !=(EntityId left, EntityId right)
-        {
-            return !left.Equals(right);
+            return (int) id;
         }
     }
 }

@@ -13,4 +13,16 @@
       <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="DesperateDevs.Utils">
+        <HintPath>..\Lib\DesperateDevs.Utils.dll</HintPath>
+      </Reference>
+      <Reference Include="Entitas">
+        <HintPath>..\Lib\Entitas.dll</HintPath>
+      </Reference>
+      <Reference Include="Entitas.CodeGeneration.Attributes">
+        <HintPath>..\Lib\Entitas.CodeGeneration.Attributes.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

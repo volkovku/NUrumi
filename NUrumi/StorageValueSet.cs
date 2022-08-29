@@ -79,6 +79,45 @@ namespace NUrumi
             return true;
         }
 
+        public bool Update<TArg>(
+            int entityIndex,
+            TValue newValue,
+            TArg arg,
+            Func<bool, TValue, TValue, TValue> update,
+            out TValue oldValue)
+        {
+            var currentIndex = _entityIndex[entityIndex] - 1;
+            if (currentIndex != None)
+            {
+                oldValue = _values[currentIndex];
+                _values[currentIndex] = update(false, oldValue, newValue);
+                return false;
+            }
+
+            if (_freeValuesInitial == 0)
+            {
+                var newSize = _values.Length << 1;
+                var newReverseIndex = new int[newSize];
+                var newValues = new TValue[newSize];
+
+                Array.Copy(ReverseIndex, newReverseIndex, ReverseIndex.Length);
+                Array.Copy(_values, newValues, _values.Length);
+
+                _freeValuesInitial = _values.Length;
+                _values = newValues;
+                ReverseIndex = newReverseIndex;
+            }
+
+            var valueIndex = _values.Length - _freeValuesInitial;
+            _entityIndex[entityIndex] = valueIndex + 1;
+            ReverseIndex[valueIndex] = entityIndex;
+            _values[valueIndex] = update(true, default, newValue);
+            _freeValuesInitial -= 1;
+
+            oldValue = default;
+            return true;
+        }
+
         public bool Set(int entityIndex, TValue value, out TValue oldValue)
         {
             var currentIndex = _entityIndex[entityIndex] - 1;
