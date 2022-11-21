@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace NUrumi
+namespace NUrumi.Exceptions
 {
     public class NUrumiException : Exception
     {

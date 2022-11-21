@@ -1,4 +1,5 @@
 ﻿using System;
+using NUrumi.Exceptions;
 
 namespace NUrumi
 {

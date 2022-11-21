@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
 using Entitas;
@@ -68,7 +69,7 @@ namespace NUrumi.Benchmark.Bench
             
             for (var i = 0; i < EntitiesCount; i++)
             {
-                if (!velocityCmp.Contains(i))
+                if (!velocityCmp.IsAPartOf(i))
                 {
                     continue;
                 }
@@ -106,20 +107,25 @@ namespace NUrumi.Benchmark.Bench
             return stub;
         }
 
+        private List<GameEntity> _entitasIter = new List<GameEntity>();
+
         [Benchmark]
         public int Entitas()
         {
             var stub = 0;
 
-            foreach (var entity in _entitasGroup)
+            _entitasGroup.GetEntities(_entitasIter);
+            for (var i = 0; i < _entitasIter.Count; i++)
             {
+                var entity = _entitasIter[i];
                 if (!entity.hasPerfTestEntitasVelocity)
                 {
                     continue;
                 }
 
                 var velocity = entity.perfTestEntitasVelocity.Value;
-                entity.perfTestEntitasPosition.Value += velocity;
+                var positionCmp = entity.perfTestEntitasPosition; 
+                positionCmp.Value += velocity;
                 stub += (int) velocity.X;
             }
 

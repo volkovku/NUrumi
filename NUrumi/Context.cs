@@ -1,18 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using NUrumi.Exceptions;
 
 namespace NUrumi
 {
+    /// <summary>
+    /// Represents a context where entities are leave.
+    /// </summary>
+    /// <typeparam name="TRegistry">A registry with components of this context.</typeparam>
     public sealed class Context<TRegistry> where TRegistry : Registry<TRegistry>, new()
     {
-        private readonly UnsafeComponentStorage[] _componentStorages;
+        private readonly ComponentStorageData[] _componentStorages;
         private readonly int _reuseEntitiesBarrier;
         private readonly Queue<int> _recycledEntities;
 
         private int[] _entities;
         private int _entitiesCount;
 
+        /// <summary>
+        /// Initializes a new instance of the Context class.
+        /// </summary>
+        /// <param name="registry">A registry with components of this context.</param>
+        /// <param name="config">A configuration of this context.</param>
         public Context(TRegistry registry = null, Config config = null)
         {
             if (config == null)
@@ -33,79 +43,25 @@ namespace NUrumi
             _componentStorages = InitRegistry(registry, config);
         }
 
+        /// <summary>
+        /// A registry with components of this context.
+        /// </summary>
         public readonly TRegistry Registry;
+
+        /// <summary>
+        /// Count of leave entities in this context.
+        /// </summary>
         public int LiveEntitiesCount => _entitiesCount - _recycledEntities.Count;
+
+        /// <summary>
+        /// Count of recycled entities.
+        /// </summary>
         public int RecycledEntitiesCount => _recycledEntities.Count;
 
-        private static UnsafeComponentStorage[] InitRegistry(TRegistry registry, Config config)
-        {
-            var componentIndex = 0;
-            var componentStorages = new List<UnsafeComponentStorage>();
-            var registryType = typeof(TRegistry);
-            foreach (var componentFieldInfo in registryType.GetFields())
-            {
-                var componentType = componentFieldInfo.FieldType;
-                if (!typeof(IComponent).IsAssignableFrom(componentType))
-                {
-                    continue;
-                }
-
-                var component = (IComponent) Activator.CreateInstance(componentFieldInfo.FieldType);
-                componentFieldInfo.SetValue(registry, component);
-
-                var componentSize = 0;
-                foreach (var valueFieldInfo in componentType.GetFields())
-                {
-                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
-                    {
-                        continue;
-                    }
-                    
-                    var valueField =
-                        (IField) valueFieldInfo.GetValue(component)
-                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
-
-                    var valueSize = valueField.ValueSize;
-                    componentSize += valueSize;
-                }
-
-                var storage = new UnsafeComponentStorage(
-                    componentSize,
-                    config.InitialEntitiesCapacity,
-                    config.InitialComponentRecordsCapacity,
-                    config.InitialComponentRecycledRecordsCapacity);
-
-                var fieldIndex = 0;
-                var fieldOffset = 0;
-                var fields = new List<IField>();
-                foreach (var valueFieldInfo in componentType.GetFields())
-                {
-                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
-                    {
-                        continue;
-                    }
-                    
-                    var valueField =
-                        (IField) valueFieldInfo.GetValue(component)
-                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
-
-                    var valueSize = valueField.ValueSize;
-                    valueField.Init(fieldIndex, fieldOffset, storage);
-                    valueFieldInfo.SetValue(component, valueField);
-
-                    fieldIndex += 1;
-                    fieldOffset += valueSize;
-                    fields.Add(valueField);
-                }
-
-                component.Init(componentIndex, fields.ToArray(), storage);
-                componentStorages.Add(storage);
-                componentIndex += 1;
-            }
-
-            return componentStorages.ToArray();
-        }
-
+        /// <summary>
+        /// Creates a new entity in this context.
+        /// </summary>
+        /// <returns>Returns an identity of new entity.</returns>
         public long CreateEntity()
         {
             int entityIndex;
@@ -134,12 +90,11 @@ namespace NUrumi
             return EntityId.Create(1, entityIndex);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsAlive(long entityId)
-        {
-            return _entities[EntityId.Index(entityId)] == EntityId.Gen(entityId);
-        }
-
+        /// <summary>
+        /// Removes entity from this context.
+        /// </summary>
+        /// <param name="entityId">An identifier of an entity to remove.</param>
+        /// <returns>True if entity was removed, otherwise false.</returns>
         public bool RemoveEntity(long entityId)
         {
             var entityIndex = EntityId.Index(entityId);
@@ -162,6 +117,87 @@ namespace NUrumi
             return true;
         }
 
+        /// <summary>
+        /// Determines is entity with specified identifier are leave.
+        /// </summary>
+        /// <param name="entityId"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAlive(long entityId)
+        {
+            return _entities[EntityId.Index(entityId)] == EntityId.Gen(entityId);
+        }
+
+        private static ComponentStorageData[] InitRegistry(TRegistry registry, Config config)
+        {
+            var componentIndex = 0;
+            var componentStorages = new List<ComponentStorageData>();
+            var registryType = typeof(TRegistry);
+            foreach (var componentFieldInfo in registryType.GetFields())
+            {
+                var componentType = componentFieldInfo.FieldType;
+                if (!typeof(IComponent).IsAssignableFrom(componentType))
+                {
+                    continue;
+                }
+
+                var component = (IComponent) Activator.CreateInstance(componentFieldInfo.FieldType);
+                componentFieldInfo.SetValue(registry, component);
+
+                var componentSize = 0;
+                foreach (var valueFieldInfo in componentType.GetFields())
+                {
+                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
+                    {
+                        continue;
+                    }
+
+                    var valueField =
+                        (IField) valueFieldInfo.GetValue(component)
+                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
+
+                    var valueSize = valueField.ValueSize;
+                    componentSize += valueSize;
+                }
+
+                var storage = new ComponentStorageData(
+                    component,
+                    componentSize,
+                    config.InitialEntitiesCapacity,
+                    config.InitialComponentRecordsCapacity,
+                    config.InitialComponentRecycledRecordsCapacity);
+
+                var fieldIndex = 0;
+                var fieldOffset = 0;
+                var fields = new List<IField>();
+                foreach (var valueFieldInfo in componentType.GetFields())
+                {
+                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
+                    {
+                        continue;
+                    }
+
+                    var valueField =
+                        (IField) valueFieldInfo.GetValue(component)
+                        ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
+
+                    var valueSize = valueField.ValueSize;
+                    valueField.Init(valueFieldInfo.Name, fieldIndex, fieldOffset, storage);
+                    valueFieldInfo.SetValue(component, valueField);
+
+                    fieldIndex += 1;
+                    fieldOffset += valueSize;
+                    fields.Add(valueField);
+                }
+
+                component.Init(componentIndex, fields.ToArray(), storage);
+                componentStorages.Add(storage);
+                componentIndex += 1;
+            }
+
+            return componentStorages.ToArray();
+        }
+
         public TValue Get<TField, TValue>(Func<TRegistry, TField> field, long entityId)
             where TField : IField<TValue>
             where TValue : unmanaged
@@ -177,7 +213,7 @@ namespace NUrumi
             EnsureAlive(entityId);
             field.Set(EntityId.Index(entityId), value);
         }
-        
+
         public void Set<TField, TValue>(Func<TRegistry, TField> field, long entityId, TValue value)
             where TField : IField<TValue>
             where TValue : unmanaged
@@ -190,7 +226,7 @@ namespace NUrumi
             where TComponent : Component<TComponent>, new()
         {
             EnsureAlive(entityId);
-            return component(Registry).Contains(EntityId.Index(entityId));
+            return component(Registry).IsAPartOf(EntityId.Index(entityId));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
