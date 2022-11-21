@@ -164,11 +164,10 @@ namespace NUrumi
                     component,
                     componentSize,
                     config.InitialEntitiesCapacity,
-                    config.InitialComponentRecordsCapacity,
-                    config.InitialComponentRecycledRecordsCapacity);
+                    config.InitialComponentRecordsCapacity);
 
                 var fieldIndex = 0;
-                var fieldOffset = 0;
+                var fieldOffset = ComponentStorageData.ReservedSize;
                 var fields = new List<IField>();
                 foreach (var valueFieldInfo in componentType.GetFields())
                 {

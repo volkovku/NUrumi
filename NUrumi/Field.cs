@@ -67,7 +67,7 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe ref TValue GetRef(int entityIndex)
         {
-            return ref *((TValue*) _storage.Get(entityIndex, _offset));
+            return ref *((TValue*) _storage.Get(_offset, entityIndex));
         }
 
         /// <summary>
@@ -92,7 +92,19 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe ref TValue GetOrSet(int entityIndex, TValue value)
         {
-            return ref *((TValue*) _storage.GetOrSet<TValue>(entityIndex, _offset, value));
+            return ref *((TValue*) _storage.GetOrSet(entityIndex, _offset, value));
+        }
+
+        /// <summary>
+        /// Try to get this field value from entity with specified index.
+        /// </summary>
+        /// <param name="entityIndex">An index of entity.</param>
+        /// <param name="result">A field value if exists.</param>
+        /// <returns>Returns true if value exists, otherwise false.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(int entityIndex, out TValue result)
+        {
+            return _storage.TryGet(entityIndex, _offset, out result);
         }
 
         /// <summary>

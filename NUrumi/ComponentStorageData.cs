@@ -8,32 +8,29 @@ namespace NUrumi
 {
     public sealed class ComponentStorageData
     {
-        internal const int ReservedSize = 0;
+        public const int ReservedSize = sizeof(int); // index
+        
         internal readonly IComponent Component;
         internal readonly int ComponentSize;
         internal int[] Entities;
-        internal int[] RecycledRecords;
         internal int RecordsCapacity;
         internal unsafe byte* Records;
+        internal int RecordsLastOffset;
         internal int RecordsCount;
-        internal int RecycledRecordsCount;
 
         public unsafe ComponentStorageData(
             IComponent component,
             int componentSize,
             int entitiesInitialCapacity,
-            int recordsInitialCapacity,
-            int recycledRecordsInitialCapacity)
+            int recordsInitialCapacity)
         {
             Component = component;
             ComponentSize = componentSize + ReservedSize;
             Entities = new int[entitiesInitialCapacity];
             Records = (byte*) Marshal.AllocHGlobal(recordsInitialCapacity * ComponentSize);
             RecordsCapacity = recordsInitialCapacity;
-            RecordsCount = 1; // 0 index record used as default values entity
-            RecycledRecords = new int[recycledRecordsInitialCapacity];
-            RecycledRecordsCount = 0;
-
+            RecordsCount = 0;
+            RecordsLastOffset = 0;
             FillWithZero(Records, RecordsCapacity * ComponentSize);
         }
 
@@ -50,9 +47,8 @@ namespace NUrumi
 
     public static class UnsafeComponentStorage
     {
-        public static int RecordsCount(this ComponentStorageData data) => data.RecordsCount - 1;
-        public static int RecycledRecordsCount(this ComponentStorageData data) => data.RecycledRecordsCount;
-
+        public static int EntitiesCount(this ComponentStorageData data) => data.RecordsCount; 
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ResizeEntities(this ComponentStorageData data, int newSize)
         {
@@ -72,23 +68,21 @@ namespace NUrumi
             int fieldOffset)
             where TValue : unmanaged
         {
-            return ref *((TValue*) Get(data, entityIndex, fieldOffset));
+            return ref *((TValue*) Get(data, fieldOffset, entityIndex));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void* Get(this ComponentStorageData data, int entityIndex, int fieldOffset)
+        public static unsafe void* Get(this ComponentStorageData data, int fieldOffset, int entityIndex)
         {
-            var recordIndex = data.Entities[entityIndex];
-            // if (recordIndex == 0)
-            // {
-            //     var field = data.Component.Fields.Single(_ => _.Offset == fieldOffset);
-            //     throw NUrumiExceptions.ComponentNotFound(entityIndex, data.Component, field);
-            // }
+            var recordOffset = data.Entities[entityIndex];
+            if (recordOffset != 0)
+            {
+                return data.Records + recordOffset + fieldOffset;
+            }
 
-            var recordOffset = recordIndex * data.ComponentSize;
-            var recordFieldOffset = recordOffset + ComponentStorageData.ReservedSize + fieldOffset;
-
-            return data.Records + recordFieldOffset;
+            // Extract method for performance optimization
+            // .net generates a lot of boilerplate IL code if exception is thrown in this scope
+            return ThrowComponentNotFound(data, fieldOffset, entityIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -109,16 +103,14 @@ namespace NUrumi
             TValue value)
             where TValue : unmanaged
         {
-            var recordIndex = data.Entities[entityIndex];
-            if (recordIndex == 0)
+            var recordOffset = data.Entities[entityIndex];
+            if (recordOffset == 0)
             {
                 Set(data, entityIndex, fieldOffset, ref value);
             }
 
-            recordIndex = data.Entities[entityIndex];
-            var recordOffset = recordIndex * data.ComponentSize;
-            var recordFieldOffset = recordOffset + ComponentStorageData.ReservedSize + fieldOffset;
-
+            recordOffset = data.Entities[entityIndex];
+            var recordFieldOffset = recordOffset + +fieldOffset;
             return data.Records + recordFieldOffset;
         }
 
@@ -130,11 +122,10 @@ namespace NUrumi
             out TValue result)
             where TValue : unmanaged
         {
-            var recordIndex = data.Entities[entityIndex];
-            var recordOffset = recordIndex * data.ComponentSize;
-            var recordFieldOffset = recordOffset + ComponentStorageData.ReservedSize + fieldOffset;
+            var recordOffset = data.Entities[entityIndex];
+            var recordFieldOffset = recordOffset + fieldOffset;
             result = *(TValue*) (data.Records + recordFieldOffset);
-            return recordIndex != 0;
+            return recordOffset != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -157,68 +148,74 @@ namespace NUrumi
             where TValue : unmanaged
         {
             var entities = data.Entities;
-            var recordIndex = entities[entityIndex];
-            if (recordIndex == 0)
+            var recordOffset = entities[entityIndex];
+            if (recordOffset == 0)
             {
-                if (data.RecycledRecordsCount > 0)
+                var recordIndex = data.RecordsCount;
+                if (recordIndex == data.RecordsCapacity - 1)
                 {
-                    recordIndex = data.RecycledRecords[--data.RecycledRecordsCount];
-                }
-                else
-                {
-                    recordIndex = data.RecordsCount;
-                    if (recordIndex == data.RecordsCapacity)
-                    {
-                        var newCapacity = data.RecordsCapacity << 1;
-                        var newSize = newCapacity * data.ComponentSize;
-                        var oldSize = data.RecordsCapacity * data.ComponentSize;
-                        var newRecords = (byte*) Marshal.AllocHGlobal(newSize);
-                        ComponentStorageData.FillWithZero(newRecords + oldSize, newSize - oldSize);
-                        Buffer.MemoryCopy(data.Records, newRecords, newSize, oldSize);
-                        Marshal.FreeHGlobal((IntPtr) data.Records);
-                        data.Records = newRecords;
-                        data.RecordsCapacity = newCapacity;
-                    }
-
-                    data.RecordsCount += 1;
+                    var newCapacity = data.RecordsCapacity << 1;
+                    var newSize = newCapacity * data.ComponentSize;
+                    var oldSize = data.RecordsCapacity * data.ComponentSize;
+                    var newRecords = (byte*) Marshal.AllocHGlobal(newSize);
+                    ComponentStorageData.FillWithZero(newRecords + oldSize, newSize - oldSize);
+                    Buffer.MemoryCopy(data.Records, newRecords, newSize, oldSize);
+                    Marshal.FreeHGlobal((IntPtr) data.Records);
+                    data.Records = newRecords;
+                    data.RecordsCapacity = newCapacity;
                 }
 
-                entities[entityIndex] = recordIndex;
+                recordOffset = (recordIndex + 1) * data.ComponentSize;
+                *(int*) (data.Records + recordOffset) = entityIndex;
+                data.RecordsCount += 1;
+                data.RecordsLastOffset = recordOffset;
             }
 
-            var recordOffset = recordIndex * data.ComponentSize;
-            var p = data.Records + recordOffset + ComponentStorageData.ReservedSize + fieldOffset;
+            entities[entityIndex] = recordOffset;
+
+            var p = data.Records + recordOffset + fieldOffset;
             *(TValue*) p = value;
         }
 
         public static unsafe bool Remove(this ComponentStorageData data, int entityIndex)
         {
             var entities = data.Entities;
-            ref var recordIndex = ref entities[entityIndex];
-            if (recordIndex == 0)
+            ref var recordOffset = ref entities[entityIndex];
+            if (recordOffset == 0)
             {
+                // Record already removed
                 return false;
             }
 
-            var recycledRecords = data.RecycledRecords;
             var p = data.Records;
+            var lastRecordOffset = data.RecordsLastOffset;
             var componentSize = data.ComponentSize;
-            var recordOffset = recordIndex * componentSize;
-            ref var recycledRecordsCount = ref data.RecycledRecordsCount;
-
-            if (recycledRecordsCount == recycledRecords.Length)
+            if (recordOffset == lastRecordOffset)
             {
-                Array.Resize(ref data.RecycledRecords, recycledRecordsCount << 1);
-                recycledRecords = data.RecycledRecords;
+                Buffer.MemoryCopy(p, p + recordOffset, componentSize, componentSize);
+                data.RecordsCount -= 1;
+                data.RecordsLastOffset -= componentSize;
+                recordOffset = 0;
+                return true;
             }
 
-            Buffer.MemoryCopy(p, p + recordOffset, componentSize, componentSize);
+            var recordEntityIndex = *(int*) (data.Records + lastRecordOffset);
+            entities[recordEntityIndex] = recordOffset;
 
-            recycledRecords[recycledRecordsCount] = recordIndex;
-            recycledRecordsCount += 1;
-            recordIndex = 0;
+            Buffer.MemoryCopy(p + lastRecordOffset, p + recordOffset, componentSize, componentSize);
+            Buffer.MemoryCopy(p, p + lastRecordOffset, componentSize, componentSize);
+
+            recordOffset = 0;
+            data.RecordsCount -= 1;
+            data.RecordsLastOffset -= componentSize;
 
             return true;
+        }
+
+        private static unsafe void* ThrowComponentNotFound(ComponentStorageData data, int fieldOffset, int entityIndex)
+        {
+            var field = data.Component.Fields.Single(_ => _.Offset == fieldOffset);
+            throw NUrumiExceptions.ComponentNotFound(entityIndex, data.Component, field);
         }
     }
 }

@@ -63,18 +63,16 @@ namespace NUrumi.Benchmark.Bench
         {
             var stub = 0;
             var cmp = _urumi.Registry;
-            var velocityCmp = cmp.Velocity;
             var positionField = cmp.Position.Value;
             var velocityField = cmp.Velocity.Value;
-            
+
             for (var i = 0; i < EntitiesCount; i++)
             {
-                if (!velocityCmp.IsAPartOf(i))
+                if (!velocityField.TryGet(i, out var velocity))
                 {
                     continue;
                 }
 
-                ref var velocity = ref velocityField.GetRef(i);
                 ref var position = ref positionField.GetRef(i);
                 position += velocity;
                 stub += (int) velocity.X;
@@ -124,7 +122,7 @@ namespace NUrumi.Benchmark.Bench
                 }
 
                 var velocity = entity.perfTestEntitasVelocity.Value;
-                var positionCmp = entity.perfTestEntitasPosition; 
+                var positionCmp = entity.perfTestEntitasPosition;
                 positionCmp.Value += velocity;
                 stub += (int) velocity.X;
             }

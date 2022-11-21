@@ -17,17 +17,17 @@ namespace NUrumi.Test
             context.Registry.Test.Index.Should().Be(0);
 
             context.Registry.Test.Field1.Index.Should().Be(0);
-            context.Registry.Test.Field1.Offset.Should().Be(0);
+            context.Registry.Test.Field1.Offset.Should().Be(ComponentStorageData.ReservedSize + 0);
             context.Registry.Test.Field1.ValueSize.Should().Be(4);
             context.Registry.Test.Field1.Name.Should().Be("Field1");
 
             context.Registry.Test.Field2.Index.Should().Be(1);
-            context.Registry.Test.Field2.Offset.Should().Be(4);
+            context.Registry.Test.Field2.Offset.Should().Be(ComponentStorageData.ReservedSize + 4);
             context.Registry.Test.Field2.ValueSize.Should().Be(1);
             context.Registry.Test.Field2.Name.Should().Be("Field2");
 
             context.Registry.Test.Field3.Index.Should().Be(2);
-            context.Registry.Test.Field3.Offset.Should().Be(5);
+            context.Registry.Test.Field3.Offset.Should().Be(ComponentStorageData.ReservedSize + 5);
             context.Registry.Test.Field3.ValueSize.Should().Be(8);
             context.Registry.Test.Field3.Name.Should().Be("Field3");
         }
