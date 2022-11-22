@@ -207,6 +207,42 @@ namespace NUrumi.Test
             entitiesInQuery[1].Should().Be(entityWithBoth2);
         }
 
+        [Test]
+        public void QueriesDeferredOperations()
+        {
+            var context = new Context<TestRegistry>();
+            var positionComponent = context.Registry.Position;
+            var position = context.Registry.Position.Value;
+            var velocity = context.Registry.Velocity.Value;
+            var query = context.CreateQuery(
+                QueryFilter
+                    .Include(context.Registry.Position)
+                    .Include(context.Registry.Velocity));
+
+            var entitiesCount = 100;
+            for (var i = 0; i < entitiesCount; i++)
+            {
+                var entity = context.CreateEntity();
+                entity.Set(position, Vector2.One);
+                entity.Set(velocity, Vector2.Zero);
+                query.EntitiesCount.Should().Be(i + 1);
+            }
+
+            var ix = 0;
+            foreach (var entity in query)
+            {
+                if (ix % 2 == 0)
+                {
+                    entity.Remove(positionComponent);
+                }
+
+                query.EntitiesCount.Should().Be(entitiesCount);
+                ix += 1;
+            }
+
+            query.EntitiesCount.Should().Be(entitiesCount / 2);
+        }
+
         private sealed class TestRegistry : Registry<TestRegistry>
         {
             public TestComponent Test;

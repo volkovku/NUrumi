@@ -58,6 +58,15 @@ namespace NUrumi
         }
     }
 
+    public static class ComponentCompanion
+    {
+        public static bool Remove<TComponent>(this int entityId, Component<TComponent> component)
+            where TComponent : Component<TComponent>, new()
+        {
+            return component.RemoveFrom(entityId);
+        }
+    }
+
     public interface IComponent
     {
         int Index { get; }

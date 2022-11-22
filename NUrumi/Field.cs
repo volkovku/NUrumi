@@ -127,6 +127,14 @@ namespace NUrumi
         }
     }
 
+    public static class FieldCompanion
+    {
+        public static void Set<TValue>(this int entityId, Field<TValue> field, TValue value) where TValue : unmanaged
+        {
+            field.Set(entityId, value);
+        }
+    }
+
     public interface IField<TValue> : IField where TValue : unmanaged
     {
         TValue Get(int entityIndex);

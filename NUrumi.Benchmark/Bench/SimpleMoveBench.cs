@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
 using BenchmarkDotNet.Attributes;
 using Entitas;
@@ -13,7 +12,6 @@ namespace NUrumi.Benchmark.Bench
 
         private readonly Context<UrumiRegistry> _urumi;
         private readonly Query _urumiQuery;
-        private int[] _urumiQueryIterator;
 
         private readonly EcsWorld _leo;
         private readonly EcsFilter _leoFilter;
