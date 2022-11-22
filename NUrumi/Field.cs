@@ -51,71 +51,71 @@ namespace NUrumi
         /// <summary>
         /// Returns this field value from entity with specified index.
         /// </summary>
-        /// <param name="entityIndex">An index of an entity.</param>
+        /// <param name="entityId">An entity identity.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public TValue Get(int entityIndex)
+        public TValue Get(int entityId)
         {
-            return _storage.Get<TValue>(entityIndex, _offset);
+            return _storage.Get<TValue>(entityId, _offset);
         }
 
         /// <summary>
         /// Returns this field value from entity with specified index as reference.
         /// </summary>
-        /// <param name="entityIndex">An index of an entity.</param>
+        /// <param name="entityId">An entity identity.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetRef(int entityIndex)
+        public unsafe ref TValue GetRef(int entityId)
         {
-            return ref *((TValue*) _storage.Get(_offset, entityIndex));
-        }
-
-        /// <summary>
-        /// Returns this field value from entity with specified index as reference.
-        /// If value does not set then set it as default and returns it as a reference.
-        /// </summary>
-        /// <param name="entityIndex">An index of an entity.</param>
-        /// <returns>A value of this field in entity.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetOrAdd(int entityIndex)
-        {
-            return ref *((TValue*) _storage.GetOrSet<TValue>(entityIndex, _offset));
+            return ref *((TValue*) _storage.Get(_offset, entityId));
         }
 
         /// <summary>
         /// Returns this field value from entity with specified index as reference.
         /// If value does not set then set it as default and returns it as a reference.
         /// </summary>
-        /// <param name="entityIndex">An index of an entity.</param>
+        /// <param name="entityId">An entity identity.</param>
+        /// <returns>A value of this field in entity.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe ref TValue GetOrAdd(int entityId)
+        {
+            return ref *((TValue*) _storage.GetOrSet<TValue>(entityId, _offset));
+        }
+
+        /// <summary>
+        /// Returns this field value from entity with specified index as reference.
+        /// If value does not set then set it as default and returns it as a reference.
+        /// </summary>
+        /// <param name="entityId">An entity identity.</param>
         /// <param name="value">A value which should be set if entity does not have value.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetOrSet(int entityIndex, TValue value)
+        public unsafe ref TValue GetOrSet(int entityId, TValue value)
         {
-            return ref *((TValue*) _storage.GetOrSet(entityIndex, _offset, value));
+            return ref *((TValue*) _storage.GetOrSet(entityId, _offset, value));
         }
 
         /// <summary>
         /// Try to get this field value from entity with specified index.
         /// </summary>
-        /// <param name="entityIndex">An index of entity.</param>
+        /// <param name="entityId">An entity identity.</param>
         /// <param name="result">A field value if exists.</param>
         /// <returns>Returns true if value exists, otherwise false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(int entityIndex, out TValue result)
+        public bool TryGet(int entityId, out TValue result)
         {
-            return _storage.TryGet(entityIndex, _offset, out result);
+            return _storage.TryGet(entityId, _offset, out result);
         }
 
         /// <summary>
         /// Sets field value to entity with specified index.
         /// </summary>
-        /// <param name="entityIndex">An index of an entity.</param>
+        /// <param name="entityId">An entity identity.</param>
         /// <param name="value">A value to set.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Set(int entityIndex, TValue value)
+        public void Set(int entityId, TValue value)
         {
-            _storage.Set(entityIndex, _offset, value);
+            _storage.Set(entityId, _offset, value);
         }
 
         void IField.Init(string name, int fieldIndex, int fieldOffset, ComponentStorageData storage)

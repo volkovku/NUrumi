@@ -12,6 +12,9 @@ namespace NUrumi.Benchmark.Bench
         private const int EntitiesCount = 100000;
 
         private readonly Context<UrumiRegistry> _urumi;
+        private readonly Query _urumiQuery;
+        private int[] _urumiQueryIterator;
+
         private readonly EcsWorld _leo;
         private readonly EcsFilter _leoFilter;
 
@@ -22,12 +25,22 @@ namespace NUrumi.Benchmark.Bench
         {
             _urumi = new Context<UrumiRegistry>();
             var cmp = _urumi.Registry;
+            var urumiPosition = cmp.Position.Value;
+            var urumiVelocity = cmp.Velocity.Value;
+            _urumiQuery = _urumi.CreateQuery(QueryFilter
+                .Include(cmp.Position)
+                .Include(cmp.Velocity));
 
             _leo = new EcsWorld();
-            _leoFilter = _leo.Filter<LeoPosition>().End();
+            _leoFilter = _leo
+                .Filter<LeoPosition>()
+                .Inc<LeoVelocity>()
+                .End();
 
             _entitas = new GameContext();
-            _entitasGroup = _entitas.GetGroup(GameMatcher.PerfTestEntitasPosition);
+            _entitasGroup = _entitas.GetGroup(GameMatcher.AllOf(
+                GameMatcher.PerfTestEntitasPosition,
+                GameMatcher.PerfTestEntitasVelocity));
 
             var leoPosPool = _leo.GetPool<LeoPosition>();
             var leoVelocityPool = _leo.GetPool<LeoVelocity>();
@@ -38,8 +51,8 @@ namespace NUrumi.Benchmark.Bench
                 var position = new Vector2(random.Next(), random.Next());
                 var velocity = new Vector2(random.Next(), random.Next());
 
-                var urumi = _urumi.CreateEntity();
-                _urumi.Set(cmp.Position.Value, urumi, position);
+                var urumiEntity = _urumi.CreateEntity();
+                urumiPosition.Set(urumiEntity, position);
 
                 var leo = _leo.NewEntity();
                 ref var leoPos = ref leoPosPool.Add(leo);
@@ -50,7 +63,7 @@ namespace NUrumi.Benchmark.Bench
 
                 if (i % 2 == 0)
                 {
-                    _urumi.Set(cmp.Velocity.Value, urumi, velocity);
+                    urumiVelocity.Set(urumiEntity, velocity);
                     ref var leoVelocity = ref leoVelocityPool.Add(leo);
                     leoVelocity.Value = velocity;
                     ent.AddPerfTestEntitasVelocity(velocity);
@@ -66,14 +79,10 @@ namespace NUrumi.Benchmark.Bench
             var positionField = cmp.Position.Value;
             var velocityField = cmp.Velocity.Value;
 
-            for (var i = 0; i < EntitiesCount; i++)
+            foreach (var entity in _urumiQuery)
             {
-                if (!velocityField.TryGet(i, out var velocity))
-                {
-                    continue;
-                }
-
-                ref var position = ref positionField.GetRef(i);
+                ref var velocity = ref velocityField.GetRef(entity);
+                ref var position = ref positionField.GetRef(entity);
                 position += velocity;
                 stub += (int) velocity.X;
             }
@@ -91,11 +100,6 @@ namespace NUrumi.Benchmark.Bench
 
             foreach (var entity in _leoFilter)
             {
-                if (!leoVelocityPool.Has(entity))
-                {
-                    continue;
-                }
-
                 ref var velocity = ref leoVelocityPool.Get(entity);
                 ref var position = ref leoPosPool.Get(entity);
                 position.Value += velocity.Value;
@@ -105,22 +109,12 @@ namespace NUrumi.Benchmark.Bench
             return stub;
         }
 
-        private List<GameEntity> _entitasIter = new List<GameEntity>();
-
         [Benchmark]
         public int Entitas()
         {
             var stub = 0;
-
-            _entitasGroup.GetEntities(_entitasIter);
-            for (var i = 0; i < _entitasIter.Count; i++)
+            foreach (var entity in _entitasGroup)
             {
-                var entity = _entitasIter[i];
-                if (!entity.hasPerfTestEntitasVelocity)
-                {
-                    continue;
-                }
-
                 var velocity = entity.perfTestEntitasVelocity.Value;
                 var positionCmp = entity.perfTestEntitasPosition;
                 positionCmp.Value += velocity;

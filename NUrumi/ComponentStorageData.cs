@@ -9,7 +9,7 @@ namespace NUrumi
     public sealed class ComponentStorageData
     {
         public const int ReservedSize = sizeof(int); // index
-        
+
         internal readonly IComponent Component;
         internal readonly int ComponentSize;
         internal int[] Entities;
@@ -17,6 +17,9 @@ namespace NUrumi
         internal unsafe byte* Records;
         internal int RecordsLastOffset;
         internal int RecordsCount;
+
+        internal Query[] Queries = new Query[10];
+        internal int QueriesCount;
 
         public unsafe ComponentStorageData(
             IComponent component,
@@ -34,6 +37,18 @@ namespace NUrumi
             FillWithZero(Records, RecordsCapacity * ComponentSize);
         }
 
+        internal void AddQuery(Query query)
+        {
+            var index = QueriesCount;
+            if (index == Queries.Length)
+            {
+                Array.Resize(ref Queries, QueriesCount << 1);
+            }
+
+            Queries[index] = query;
+            QueriesCount += 1;
+        }
+
         internal static unsafe void FillWithZero(byte* array, int size)
         {
             var p = array;
@@ -47,8 +62,8 @@ namespace NUrumi
 
     public static class UnsafeComponentStorage
     {
-        public static int EntitiesCount(this ComponentStorageData data) => data.RecordsCount; 
-        
+        public static int EntitiesCount(this ComponentStorageData data) => data.RecordsCount;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void ResizeEntities(this ComponentStorageData data, int newSize)
         {
@@ -169,9 +184,10 @@ namespace NUrumi
                 *(int*) (data.Records + recordOffset) = entityIndex;
                 data.RecordsCount += 1;
                 data.RecordsLastOffset = recordOffset;
-            }
+                entities[entityIndex] = recordOffset;
 
-            entities[entityIndex] = recordOffset;
+                UpdateQueries(data, entityIndex, true);
+            }
 
             var p = data.Records + recordOffset + fieldOffset;
             *(TValue*) p = value;
@@ -196,6 +212,9 @@ namespace NUrumi
                 data.RecordsCount -= 1;
                 data.RecordsLastOffset -= componentSize;
                 recordOffset = 0;
+
+                UpdateQueries(data, entityIndex, false);
+
                 return true;
             }
 
@@ -209,7 +228,20 @@ namespace NUrumi
             data.RecordsCount -= 1;
             data.RecordsLastOffset -= componentSize;
 
+            UpdateQueries(data, entityIndex, false);
+
             return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void UpdateQueries(ComponentStorageData data, int entityIndex, bool added)
+        {
+            var queries = data.Queries;
+            var queriesCount = data.QueriesCount;
+            for (var i = 0; i < queriesCount; i++)
+            {
+                queries[i].Update(entityIndex, added);
+            }
         }
 
         private static unsafe void* ThrowComponentNotFound(ComponentStorageData data, int fieldOffset, int entityIndex)

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using NUrumi.Exceptions;
 
 namespace NUrumi
 {
@@ -14,6 +14,7 @@ namespace NUrumi
         private readonly ComponentStorageData[] _componentStorages;
         private readonly int _reuseEntitiesBarrier;
         private readonly Queue<int> _recycledEntities;
+        private readonly Dictionary<IQueryFilter, Query> _queries;
 
         private int[] _entities;
         private int _entitiesCount;
@@ -41,12 +42,19 @@ namespace NUrumi
             _recycledEntities = new Queue<int>();
             _reuseEntitiesBarrier = config.InitialReuseEntitiesBarrier;
             _componentStorages = InitRegistry(registry, config);
+            _queries = new Dictionary<IQueryFilter, Query>();
+            Components = _componentStorages.Select(_ => _.Component).ToArray();
         }
 
         /// <summary>
         /// A registry with components of this context.
         /// </summary>
         public readonly TRegistry Registry;
+
+        /// <summary>
+        /// A collection of components of this context.
+        /// </summary>
+        public readonly IReadOnlyList<IComponent> Components;
 
         /// <summary>
         /// Count of leave entities in this context.
@@ -62,32 +70,38 @@ namespace NUrumi
         /// Creates a new entity in this context.
         /// </summary>
         /// <returns>Returns an identity of new entity.</returns>
-        public long CreateEntity()
+        public int CreateEntity()
         {
-            int entityIndex;
+            int entityId;
             if (_recycledEntities.Count >= _reuseEntitiesBarrier)
             {
-                entityIndex = _recycledEntities.Dequeue();
-                ref var gen = ref _entities[entityIndex];
+                entityId = _recycledEntities.Dequeue();
+                ref var gen = ref _entities[entityId];
                 gen = -gen + 1;
-                return EntityId.Create(gen, entityIndex);
+                return entityId;
             }
 
-            entityIndex = _entitiesCount;
-            if (entityIndex == _entities.Length)
+            entityId = _entitiesCount;
+            if (entityId == _entities.Length)
             {
-                var newSize = entityIndex << 1;
+                var newSize = entityId << 1;
                 Array.Resize(ref _entities, newSize);
+
                 for (var i = 0; i < _componentStorages.Length; i++)
                 {
                     _componentStorages[i].ResizeEntities(newSize);
                 }
+
+                foreach (var query in _queries.Values)
+                {
+                    query.ResizeEntities(newSize);
+                }
             }
 
-            _entities[entityIndex] = 1;
+            _entities[entityId] = 1;
             _entitiesCount += 1;
 
-            return EntityId.Create(1, entityIndex);
+            return entityId;
         }
 
         /// <summary>
@@ -95,23 +109,22 @@ namespace NUrumi
         /// </summary>
         /// <param name="entityId">An identifier of an entity to remove.</param>
         /// <returns>True if entity was removed, otherwise false.</returns>
-        public bool RemoveEntity(long entityId)
+        public bool RemoveEntity(int entityId)
         {
-            var entityIndex = EntityId.Index(entityId);
-            ref var gen = ref _entities[entityIndex];
+            ref var gen = ref _entities[entityId];
             if (gen <= 0)
             {
                 return false;
             }
 
             gen *= -1;
-            _recycledEntities.Enqueue(entityIndex);
+            _recycledEntities.Enqueue(entityId);
 
             var componentStorages = _componentStorages;
             for (var i = 0; i < componentStorages.Length; i++)
             {
                 var storage = componentStorages[i];
-                storage.Remove(entityIndex);
+                storage.Remove(entityId);
             }
 
             return true;
@@ -120,12 +133,53 @@ namespace NUrumi
         /// <summary>
         /// Determines is entity with specified identifier are leave.
         /// </summary>
-        /// <param name="entityId"></param>
+        /// <param name="entityId">An identifier of entity to check is it alive.</param>
+        /// <param name="gen">A generation of alive entity.</param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsAlive(long entityId)
+        public bool IsAlive(int entityId, out int gen)
         {
-            return _entities[EntityId.Index(entityId)] == EntityId.Gen(entityId);
+            gen = _entities[entityId];
+            return gen > 0;
+        }
+
+        /// <summary>
+        /// Determines is entity with specified identifier are leave.
+        /// </summary>
+        /// <param name="entityId">An identifier of entity to check is it alive.</param>
+        /// <param name="gen">A generation of alive entity.</param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAlive(int entityId, int gen)
+        {
+            return _entities[entityId] == gen;
+        }
+
+        /// <summary>
+        /// Creates entities query with specified filter.
+        /// </summary>
+        /// <param name="filter">A filter for entities.</param>
+        /// <returns>Return query with entities correspond to specified filter.</returns>
+        public Query CreateQuery(IQueryFilter filter)
+        {
+            if (_queries.TryGetValue(filter, out var query))
+            {
+                return query;
+            }
+
+            query = Query.Create(filter, _entities.Length);
+            for (var i = 0; i < _entities.Length; i++)
+            {
+                if (_entities[i] <= 0)
+                {
+                    continue;
+                }
+
+                query.Update(i);
+            }
+
+            _queries.Add(filter, query);
+            return query;
         }
 
         private static ComponentStorageData[] InitRegistry(TRegistry registry, Config config)
@@ -195,49 +249,6 @@ namespace NUrumi
             }
 
             return componentStorages.ToArray();
-        }
-
-        public TValue Get<TField, TValue>(Func<TRegistry, TField> field, long entityId)
-            where TField : IField<TValue>
-            where TValue : unmanaged
-        {
-            EnsureAlive(entityId);
-            return field(Registry).Get(EntityId.Index(entityId));
-        }
-
-        public void Set<TField, TValue>(TField field, long entityId, TValue value)
-            where TField : IField<TValue>
-            where TValue : unmanaged
-        {
-            EnsureAlive(entityId);
-            field.Set(EntityId.Index(entityId), value);
-        }
-
-        public void Set<TField, TValue>(Func<TRegistry, TField> field, long entityId, TValue value)
-            where TField : IField<TValue>
-            where TValue : unmanaged
-        {
-            EnsureAlive(entityId);
-            field(Registry).Set(EntityId.Index(entityId), value);
-        }
-
-        public bool Has<TComponent>(Func<TRegistry, TComponent> component, long entityId)
-            where TComponent : Component<TComponent>, new()
-        {
-            EnsureAlive(entityId);
-            return component(Registry).IsAPartOf(EntityId.Index(entityId));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureAlive(long entityId)
-        {
-            if (!IsAlive(entityId))
-            {
-                throw new NUrumiException(
-                    "Access to dead entity (" +
-                    $"entity_index={EntityId.Index(entityId)}," +
-                    $"entity_gen={EntityId.Gen(entityId)})");
-            }
         }
     }
 }

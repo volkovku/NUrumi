@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using FluentAssertions;
 using NUnit.Framework;
 
@@ -43,33 +41,33 @@ namespace NUrumi.Test
 
             // Create entities
             var entity1 = context.CreateEntity();
-            context.IsAlive(entity1).Should().BeTrue();
+            context.IsAlive(entity1, out var entity1Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(1);
-            EntityId.Index(entity1).Should().Be(0);
-            EntityId.Gen(entity1).Should().Be(1);
+            entity1.Should().Be(0);
+            entity1Gen.Should().Be(1);
 
             var entity2 = context.CreateEntity();
-            context.IsAlive(entity2).Should().BeTrue();
+            context.IsAlive(entity2, out var entity2Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(2);
-            EntityId.Index(entity2).Should().Be(1);
-            EntityId.Gen(entity2).Should().Be(1);
+            entity2.Should().Be(1);
+            entity2Gen.Should().Be(1);
 
             var entity3 = context.CreateEntity();
-            context.IsAlive(entity3).Should().BeTrue();
+            context.IsAlive(entity3, out var entity3Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(3);
-            EntityId.Index(entity3).Should().Be(2);
-            EntityId.Gen(entity3).Should().Be(1);
+            entity3.Should().Be(2);
+            entity3Gen.Should().Be(1);
 
             // Ensure that new entities does not affect each other
-            context.IsAlive(entity1).Should().BeTrue();
-            context.IsAlive(entity2).Should().BeTrue();
-            context.IsAlive(entity3).Should().BeTrue();
+            context.IsAlive(entity1, out _).Should().BeTrue();
+            context.IsAlive(entity2, out _).Should().BeTrue();
+            context.IsAlive(entity3, out _).Should().BeTrue();
 
             // Remove entity in a middle position
             context.RemoveEntity(entity2).Should().BeTrue();
-            context.IsAlive(entity1).Should().BeTrue();
-            context.IsAlive(entity2).Should().BeFalse();
-            context.IsAlive(entity3).Should().BeTrue();
+            context.IsAlive(entity1, out _).Should().BeTrue();
+            context.IsAlive(entity2, out _).Should().BeFalse();
+            context.IsAlive(entity3, out _).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(2);
             context.RecycledEntitiesCount.Should().Be(1);
 
@@ -77,41 +75,41 @@ namespace NUrumi.Test
             var entity4 = context.CreateEntity();
             var entity5 = context.CreateEntity();
             context.LiveEntitiesCount.Should().Be(4);
-            context.IsAlive(entity4).Should().BeTrue();
-            context.IsAlive(entity5).Should().BeTrue();
-            EntityId.Index(entity4).Should().Be(3);
-            EntityId.Gen(entity4).Should().Be(1);
-            EntityId.Index(entity5).Should().Be(4);
-            EntityId.Gen(entity5).Should().Be(1);
+            context.IsAlive(entity4, out var entity4Gen).Should().BeTrue();
+            context.IsAlive(entity5, out var entity5Gen).Should().BeTrue();
+            entity4.Should().Be(3);
+            entity4Gen.Should().Be(1);
+            entity5.Should().Be(4);
+            entity5Gen.Should().Be(1);
 
             // It should reuse entity index when reuse barrier was reached
             context.RemoveEntity(entity5);
             context.RemoveEntity(entity4);
             context.LiveEntitiesCount.Should().Be(2);
             context.RecycledEntitiesCount.Should().Be(3);
-            context.IsAlive(entity1).Should().BeTrue();
-            context.IsAlive(entity2).Should().BeFalse();
-            context.IsAlive(entity3).Should().BeTrue();
-            context.IsAlive(entity4).Should().BeFalse();
-            context.IsAlive(entity5).Should().BeFalse();
+            context.IsAlive(entity1, out _).Should().BeTrue();
+            context.IsAlive(entity2, out _).Should().BeFalse();
+            context.IsAlive(entity3, out _).Should().BeTrue();
+            context.IsAlive(entity4, out _).Should().BeFalse();
+            context.IsAlive(entity5, out _).Should().BeFalse();
 
             var entity6 = context.CreateEntity();
             var entity7 = context.CreateEntity();
-            context.IsAlive(entity1).Should().BeTrue();
-            context.IsAlive(entity2).Should().BeFalse();
-            context.IsAlive(entity3).Should().BeTrue();
-            context.IsAlive(entity4).Should().BeFalse();
-            context.IsAlive(entity5).Should().BeFalse();
-            context.IsAlive(entity6).Should().BeTrue();
-            context.IsAlive(entity7).Should().BeTrue();
+            context.IsAlive(entity1, entity1Gen).Should().BeTrue();
+            context.IsAlive(entity2, entity2Gen).Should().BeFalse();
+            context.IsAlive(entity3, entity3Gen).Should().BeTrue();
+            context.IsAlive(entity4, entity4Gen).Should().BeFalse();
+            context.IsAlive(entity5, entity5Gen).Should().BeFalse();
+            context.IsAlive(entity6, out var entity6Gen).Should().BeTrue();
+            context.IsAlive(entity7, out var entity7Gen).Should().BeTrue();
 
             context.LiveEntitiesCount.Should().Be(4);
             context.RecycledEntitiesCount.Should().Be(1);
 
-            EntityId.Index(entity6).Should().Be(1);
-            EntityId.Gen(entity6).Should().Be(2);
-            EntityId.Index(entity7).Should().Be(4);
-            EntityId.Gen(entity7).Should().Be(2);
+            entity6.Should().Be(1);
+            entity6Gen.Should().Be(2);
+            entity7.Should().Be(4);
+            entity7Gen.Should().Be(2);
         }
 
         [Test]
@@ -122,73 +120,91 @@ namespace NUrumi.Test
             var velocity = context.Registry.Velocity.Value;
 
             var entityId = context.CreateEntity();
-            var entityIndex = EntityId.Index(entityId);
-            position.Set(entityIndex, Vector2.Zero);
-            velocity.Set(entityIndex, Vector2.One);
+            position.Set(entityId, Vector2.Zero);
+            velocity.Set(entityId, Vector2.One);
 
-            ref var positionRef = ref position.GetRef(entityIndex);
-            ref var velocityRef = ref velocity.GetRef(entityIndex);
+            ref var positionRef = ref position.GetRef(entityId);
+            ref var velocityRef = ref velocity.GetRef(entityId);
             positionRef += velocityRef;
 
-            position.Get(entityIndex).Should().Be(Vector2.One);
+            position.Get(entityId).Should().Be(Vector2.One);
         }
 
         [Test]
         public void EntityValues()
         {
             var context = new Context<TestRegistry>();
+            var testComponent = context.Registry.Test;
+            var field1 = context.Registry.Test.Field1;
+            var field2 = context.Registry.Test.Field2;
+            var field3 = context.Registry.Test.Field3;
 
             var entityId = context.CreateEntity();
-            context.Set(_ => _.Test.Field1, entityId, int.MaxValue / 2);
-            context.Set(_ => _.Test.Field2, entityId, (byte) 2);
-            context.Set(_ => _.Test.Field3, entityId, long.MaxValue / 2);
+            field1.Set(entityId, int.MaxValue / 2);
+            field2.Set(entityId, 2);
+            field3.Set(entityId, long.MaxValue / 2);
 
-            context.IsAlive(entityId).Should().BeTrue();
-            context.Has(_ => _.Test, entityId);
-            context.Get<Field<int>, int>(_ => _.Test.Field1, entityId).Should().Be(int.MaxValue / 2);
-            context.Get<Field<byte>, byte>(_ => _.Test.Field2, entityId).Should().Be(2);
-            context.Get<Field<long>, long>(_ => _.Test.Field3, entityId).Should().Be(long.MaxValue / 2);
+            context.IsAlive(entityId, out _).Should().BeTrue();
+            testComponent.IsAPartOf(entityId).Should().BeTrue();
+            field1.Get(entityId).Should().Be(int.MaxValue / 2);
+            field2.Get(entityId).Should().Be(2);
+            field3.Get(entityId).Should().Be(long.MaxValue / 2);
         }
 
         [Test]
-        public void Performance()
+        public void Queries()
         {
             var context = new Context<TestRegistry>();
-            var testCmp = context.Registry.Test;
-            var cmpStorage = testCmp.Storage;
+            var position = context.Registry.Position.Value;
+            var velocity = context.Registry.Velocity.Value;
 
-            var sw = Stopwatch.StartNew();
-            for (var i = 0; i < 1000000; i++)
-            {
-                var entityId = context.CreateEntity();
-                var entityIndex = EntityId.Index(entityId);
-                testCmp.Field1.Set(entityIndex, i * 2);
-                testCmp.Field3.Set(entityIndex, (i * 2) + 1);
-            }
+            var queryPosition = context.CreateQuery(QueryFilter.Include(context.Registry.Position));
+            var queryVelocity = context.CreateQuery(QueryFilter.Include(context.Registry.Velocity));
+            var queryWithBoth = context.CreateQuery(
+                QueryFilter
+                    .Include(context.Registry.Position)
+                    .Include(context.Registry.Velocity));
 
-            sw.Stop();
-            Console.WriteLine(sw.Elapsed.TotalMilliseconds);
+            var entityWithPosition = context.CreateEntity();
+            position.Set(entityWithPosition, Vector2.One);
+            queryWithBoth.EntitiesCount.Should().Be(0);
 
-            sw.Restart();
-            var xx = 0;
+            var entityWithVelocity = context.CreateEntity();
+            velocity.Set(entityWithVelocity, Vector2.One);
+            queryWithBoth.EntitiesCount.Should().Be(0);
 
-            for (var i = 0; i < 1000000; i++)
-            {
-                var entityId = EntityId.Create(1, i);
-                xx += context.Get<Field<int>, int>(_ => _.Test.Field1, entityId);
-                xx += (int) context.Get<Field<long>, long>(_ => _.Test.Field3, entityId);
-            }
+            var entityWithBoth1 = context.CreateEntity();
+            position.Set(entityWithBoth1, Vector2.Zero);
+            velocity.Set(entityWithBoth1, Vector2.One);
+            queryWithBoth.EntitiesCount.Should().Be(1);
 
-            sw.Stop();
-            Console.WriteLine(xx);
-            Console.WriteLine(sw.Elapsed.TotalMilliseconds);
+            var entityWithBoth2 = context.CreateEntity();
+            position.Set(entityWithBoth2, Vector2.One);
+            velocity.Set(entityWithBoth2, Vector2.Zero);
+            queryWithBoth.EntitiesCount.Should().Be(2);
 
-            for (var i = 0; i < 1000000; i++)
-            {
-                var entityId = EntityId.Create(1, i);
-                context.Get<Field<int>, int>(_ => _.Test.Field1, entityId).Should().Be(i * 2);
-                context.Get<Field<long>, long>(_ => _.Test.Field3, entityId).Should().Be((i * 2) + 1);
-            }
+            var entitiesInQuery = (int[]) null;
+            var entitiesInQueryCount = queryWithBoth.GetEntities(ref entitiesInQuery);
+            entitiesInQueryCount.Should().Be(2);
+            entitiesInQuery.Length.Should().Be(2);
+            entitiesInQuery[0].Should().Be(entityWithBoth1);
+            entitiesInQuery[1].Should().Be(entityWithBoth2);
+
+            context.Registry.Velocity.RemoveFrom(entityWithBoth1).Should().Be(true);
+            queryWithBoth.EntitiesCount.Should().Be(1);
+
+            context.Registry.Position.RemoveFrom(entityWithBoth2).Should().Be(true);
+            queryWithBoth.EntitiesCount.Should().Be(0);
+
+            queryPosition.EntitiesCount.Should().Be(2);
+            queryPosition.GetEntities(ref entitiesInQuery);
+            entitiesInQuery[0].Should().Be(entityWithPosition);
+            entitiesInQuery[1].Should().Be(entityWithBoth1);
+
+            queryVelocity.EntitiesCount.Should().Be(2);
+            queryVelocity.GetEntities(ref entitiesInQuery);
+            entitiesInQuery[0].Should().Be(entityWithVelocity);
+            entitiesInQuery[1].Should().Be(entityWithBoth2);
         }
 
         private sealed class TestRegistry : Registry<TestRegistry>

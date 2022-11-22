@@ -29,13 +29,23 @@ namespace NUrumi
         public ComponentStorageData Storage;
 
         /// <summary>
-        /// Determines is this component a part of entity with specified index.
+        /// Determines is this component a part of entity with specified identifier.
         /// </summary>
-        /// <param name="entityIndex">An index of entity to check.</param>
+        /// <param name="entityId">An entity identity.</param>
         /// <returns>Returns true if this component is a part of entity; otherwise false.</returns>
-        public bool IsAPartOf(int entityIndex)
+        public bool IsAPartOf(int entityId)
         {
-            return Storage.Has(entityIndex);
+            return Storage.Has(entityId);
+        }
+
+        /// <summary>
+        /// Removes component from entity with specified identifier.
+        /// </summary>
+        /// <param name="entityId">An identifier of an entity.</param>
+        /// <returns>Returns true if component was removed, otherwise false.</returns>
+        public bool RemoveFrom(int entityId)
+        {
+            return Storage.Remove(entityId);
         }
 
         ComponentStorageData IComponent.Storage => Storage;
@@ -50,6 +60,7 @@ namespace NUrumi
 
     public interface IComponent
     {
+        int Index { get; }
         ComponentStorageData Storage { get; }
         IReadOnlyList<IField> Fields { get; }
         void Init(int index, IField[] fields, ComponentStorageData storage);
