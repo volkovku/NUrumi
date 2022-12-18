@@ -1,6 +1,6 @@
 ﻿namespace NUrumi
 {
-    public sealed class Query
+    public sealed class Query : IQuery
     {
         private readonly bool[] _conditions;
         private readonly ComponentStorageData[] _componentStorages;
@@ -57,23 +57,7 @@
             return _entities.GetEnumerator();
         }
 
-        internal void Update(int entityIndex)
-        {
-            for (var i = 0; i < _conditions.Length; i++)
-            {
-                if (_conditions[i] == _componentStorages[i].Has(entityIndex))
-                {
-                    continue;
-                }
-
-                _entities.Remove(entityIndex);
-                return;
-            }
-
-            _entities.Add(entityIndex);
-        }
-
-        internal void Update(int entityIndex, bool added)
+        void IQuery.Update(int entityIndex, bool added)
         {
             if (_singleInclude)
             {
@@ -90,6 +74,22 @@
             }
 
             Update(entityIndex);
+        }
+
+        internal void Update(int entityIndex)
+        {
+            for (var i = 0; i < _conditions.Length; i++)
+            {
+                if (_conditions[i] == _componentStorages[i].Has(entityIndex))
+                {
+                    continue;
+                }
+
+                _entities.Remove(entityIndex);
+                return;
+            }
+
+            _entities.Add(entityIndex);
         }
 
         internal void ResizeEntities(int newSize)

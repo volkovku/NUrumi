@@ -18,7 +18,7 @@ namespace NUrumi
         internal int RecordsLastOffset;
         internal int RecordsCount;
 
-        internal Query[] Queries = new Query[10];
+        internal IQuery[] Queries = new IQuery[10];
         internal int QueriesCount;
 
         public unsafe ComponentStorageData(
@@ -37,7 +37,7 @@ namespace NUrumi
             FillWithZero(Records, RecordsCapacity * ComponentSize);
         }
 
-        internal void AddQuery(Query query)
+        internal void AddQuery(IQuery query)
         {
             var index = QueriesCount;
             if (index == Queries.Length)

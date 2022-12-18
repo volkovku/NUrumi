@@ -15,6 +15,7 @@ namespace NUrumi
         private readonly int _reuseEntitiesBarrier;
         private readonly Queue<int> _recycledEntities;
         private readonly Dictionary<IQueryFilter, Query> _queries;
+        private readonly List<IContextResizeCallback> _resizeCallbacks;
 
         private int[] _entities;
         private int _entitiesCount;
@@ -41,7 +42,8 @@ namespace NUrumi
             _entitiesCount = 0;
             _recycledEntities = new Queue<int>();
             _reuseEntitiesBarrier = config.InitialReuseEntitiesBarrier;
-            _componentStorages = InitRegistry(registry, config);
+            _resizeCallbacks = new List<IContextResizeCallback>();
+            _componentStorages = InitRegistry(registry, config, _resizeCallbacks);
             _queries = new Dictionary<IQueryFilter, Query>();
             Components = _componentStorages.Select(_ => _.Component).ToArray();
         }
@@ -95,6 +97,11 @@ namespace NUrumi
                 foreach (var query in _queries.Values)
                 {
                     query.ResizeEntities(newSize);
+                }
+
+                foreach (var resizeCallback in _resizeCallbacks)
+                {
+                    resizeCallback.ResizeEntities(newSize);
                 }
             }
 
@@ -182,7 +189,10 @@ namespace NUrumi
             return query;
         }
 
-        private static ComponentStorageData[] InitRegistry(TRegistry registry, Config config)
+        private static ComponentStorageData[] InitRegistry(
+            TRegistry registry,
+            Config config,
+            List<IContextResizeCallback> contextResizeCallbacks)
         {
             var componentIndex = 0;
             var componentStorages = new List<ComponentStorageData>();
@@ -237,6 +247,11 @@ namespace NUrumi
                     var valueSize = valueField.ValueSize;
                     valueField.Init(valueFieldInfo.Name, fieldIndex, fieldOffset, storage);
                     valueFieldInfo.SetValue(component, valueField);
+
+                    if (valueField is IContextResizeCallback resizeCallback)
+                    {
+                        contextResizeCallbacks.Add(resizeCallback);
+                    }
 
                     fieldIndex += 1;
                     fieldOffset += valueSize;

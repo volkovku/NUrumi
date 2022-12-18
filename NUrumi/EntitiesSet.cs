@@ -5,6 +5,8 @@ namespace NUrumi
 {
     public sealed class EntitiesSet
     {
+        public static readonly EntitiesSet Empty = new EntitiesSet(0);
+
         private int[] _entitiesIndex;
         private int[] _denseEntities;
         private int _entitiesCount;
@@ -31,7 +33,7 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int GetEntities(ref int[] result)
+        public int GetEntities(ref int[] result)
         {
             var entitiesCount = _entitiesCount;
             if (result == null)
@@ -48,7 +50,7 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Enumerator GetEnumerator()
+        public Enumerator GetEnumerator()
         {
             _locksCount += 1;
             return new Enumerator(this);
@@ -61,7 +63,7 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(int entityIndex)
+        internal void Add(int entityIndex)
         {
             if (AddDeferredOperation(false, entityIndex))
             {
@@ -92,7 +94,7 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(int entityIndex)
+        internal void Remove(int entityIndex)
         {
             if (AddDeferredOperation(false, entityIndex))
             {

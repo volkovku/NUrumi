@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections.Generic;
+using System.Numerics;
 using FluentAssertions;
 using NUnit.Framework;
 
@@ -243,11 +244,55 @@ namespace NUrumi.Test
             query.EntitiesCount.Should().Be(entitiesCount / 2);
         }
 
+        [Test]
+        public void IndexField()
+        {
+            var context = new Context<TestRegistry>();
+            var parentComponent = context.Registry.Parent;
+            var parent = parentComponent.Value;
+
+            var parentEntity = context.CreateEntity();
+
+            var childEntity1 = context.CreateEntity();
+            parent.Set(childEntity1, parentEntity);
+
+            var childEntity2 = context.CreateEntity();
+            parent.Set(childEntity2, parentEntity);
+
+            var childEntity3 = context.CreateEntity();
+            parent.Set(childEntity3, parentEntity);
+
+            var children = new HashSet<int>();
+            foreach (var child in parent.GetEntitiesAssociatedWith(parentEntity))
+            {
+                children.Add(child);
+            }
+
+            children.Count.Should().Be(3);
+            children.Contains(childEntity1).Should().BeTrue();
+            children.Contains(childEntity2).Should().BeTrue();
+            children.Contains(childEntity3).Should().BeTrue();
+
+            parentComponent.RemoveFrom(childEntity2);
+
+            children.Clear();
+            foreach (var child in parent.GetEntitiesAssociatedWith(parentEntity))
+            {
+                children.Add(child);
+            }
+
+            children.Count.Should().Be(2);
+            children.Contains(childEntity1).Should().BeTrue();
+            children.Contains(childEntity2).Should().BeFalse();
+            children.Contains(childEntity3).Should().BeTrue();
+        }
+
         private sealed class TestRegistry : Registry<TestRegistry>
         {
             public TestComponent Test;
             public Position Position;
             public Velocity Velocity;
+            public Parent Parent;
         }
 
         private sealed class TestComponent : Component<TestComponent>
@@ -265,6 +310,11 @@ namespace NUrumi.Test
         public sealed class Velocity : Component<Velocity>
         {
             public Field<Vector2> Value;
+        }
+
+        public sealed class Parent : Component<Parent>
+        {
+            public IndexField<int> Value;
         }
     }
 }
