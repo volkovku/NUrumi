@@ -23,7 +23,7 @@ namespace NUrumi.Benchmark.Bench
         {
             _urumi = new Context<UrumiRegistry>();
             var cmp = _urumi.Registry;
-            var urumiPosition = cmp.Position.Value;
+            var urumiPosition = cmp.Position;
             var urumiVelocity = cmp.Velocity.Value;
             _urumiQuery = _urumi.CreateQuery(QueryFilter
                 .Include(cmp.Position)
@@ -74,7 +74,7 @@ namespace NUrumi.Benchmark.Bench
         {
             var stub = 0;
             var cmp = _urumi.Registry;
-            var positionField = cmp.Position.Value;
+            var positionField = cmp.Position;
             var velocityField = cmp.Velocity.Value;
 
             foreach (var entity in _urumiQuery)
@@ -128,9 +128,8 @@ namespace NUrumi.Benchmark.Bench
             public UrumiVelocity Velocity;
         }
 
-        private class UrumiPosition : Component<UrumiPosition>
+        private class UrumiPosition : Component<UrumiPosition>.Of<Vector2>
         {
-            public Field<Vector2> Value;
         }
 
         private class UrumiVelocity : Component<UrumiVelocity>

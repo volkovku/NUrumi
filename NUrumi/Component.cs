@@ -6,7 +6,7 @@ namespace NUrumi
     /// Represents a component.
     /// </summary>
     /// <typeparam name="TComponent">A type of derived component.</typeparam>
-    public abstract class Component<TComponent> :
+    public abstract partial class Component<TComponent> :
         IComponent
         where TComponent : Component<TComponent>, new()
     {
@@ -56,6 +56,8 @@ namespace NUrumi
             _fields = fields;
             Storage = storage;
         }
+
+
     }
 
     public static class ComponentCompanion

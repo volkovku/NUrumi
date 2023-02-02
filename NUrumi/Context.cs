@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace NUrumi
@@ -209,13 +210,9 @@ namespace NUrumi
                 componentFieldInfo.SetValue(registry, component);
 
                 var componentSize = 0;
-                foreach (var valueFieldInfo in componentType.GetFields())
+                var fieldInfos = GetFields(componentType).Distinct().ToArray();
+                foreach (var valueFieldInfo in fieldInfos)
                 {
-                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
-                    {
-                        continue;
-                    }
-
                     var valueField =
                         (IField) valueFieldInfo.GetValue(component)
                         ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
@@ -233,13 +230,8 @@ namespace NUrumi
                 var fieldIndex = 0;
                 var fieldOffset = ComponentStorageData.ReservedSize;
                 var fields = new List<IField>();
-                foreach (var valueFieldInfo in componentType.GetFields())
+                foreach (var valueFieldInfo in fieldInfos)
                 {
-                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
-                    {
-                        continue;
-                    }
-
                     var valueField =
                         (IField) valueFieldInfo.GetValue(component)
                         ?? (IField) Activator.CreateInstance(valueFieldInfo.FieldType);
@@ -264,6 +256,33 @@ namespace NUrumi
             }
 
             return componentStorages.ToArray();
+        }
+
+        private static IEnumerable<FieldInfo> GetFields(Type type)
+        {
+            while (true)
+            {
+                foreach (var valueFieldInfo in type.GetFields(
+                             BindingFlags.Instance |
+                             BindingFlags.Public |
+                             BindingFlags.NonPublic))
+                {
+                    if (!typeof(IField).IsAssignableFrom(valueFieldInfo.FieldType))
+                    {
+                        continue;
+                    }
+
+                    yield return valueFieldInfo;
+                }
+
+                if (type.BaseType != null)
+                {
+                    type = type.BaseType;
+                    continue;
+                }
+
+                break;
+            }
         }
     }
 }

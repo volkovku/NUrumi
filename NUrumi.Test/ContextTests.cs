@@ -117,8 +117,8 @@ namespace NUrumi.Test
         public void SetFieldValuesByRef()
         {
             var context = new Context<TestRegistry>();
-            var position = context.Registry.Position.Value;
-            var velocity = context.Registry.Velocity.Value;
+            var position = context.Registry.Position;
+            var velocity = context.Registry.Velocity;
 
             var entityId = context.CreateEntity();
             position.Set(entityId, Vector2.Zero);
@@ -156,8 +156,8 @@ namespace NUrumi.Test
         public void Queries()
         {
             var context = new Context<TestRegistry>();
-            var position = context.Registry.Position.Value;
-            var velocity = context.Registry.Velocity.Value;
+            var position = context.Registry.Position;
+            var velocity = context.Registry.Velocity;
 
             var queryPosition = context.CreateQuery(QueryFilter.Include(context.Registry.Position));
             var queryVelocity = context.CreateQuery(QueryFilter.Include(context.Registry.Velocity));
@@ -213,8 +213,8 @@ namespace NUrumi.Test
         {
             var context = new Context<TestRegistry>();
             var positionComponent = context.Registry.Position;
-            var position = context.Registry.Position.Value;
-            var velocity = context.Registry.Velocity.Value;
+            var position = context.Registry.Position;
+            var velocity = context.Registry.Velocity;
             var query = context.CreateQuery(
                 QueryFilter
                     .Include(context.Registry.Position)
@@ -302,14 +302,12 @@ namespace NUrumi.Test
             public Field<long> Field3;
         }
 
-        public sealed class Position : Component<Position>
+        public sealed class Position : Component<Position>.Of<Vector2>
         {
-            public Field<Vector2> Value;
         }
 
-        public sealed class Velocity : Component<Velocity>
+        public sealed class Velocity : Component<Velocity>.Of<Vector2>
         {
-            public Field<Vector2> Value;
         }
 
         public sealed class Parent : Component<Parent>
