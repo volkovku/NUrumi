@@ -11,7 +11,7 @@ namespace NUrumi.Benchmark.Bench
         private const int EntitiesCount = 100000;
 
         private readonly Context<UrumiRegistry> _urumi;
-        private readonly Query _urumiQuery;
+        private readonly Group _urumiGroup;
 
         private readonly EcsWorld _leo;
         private readonly EcsFilter _leoFilter;
@@ -25,7 +25,7 @@ namespace NUrumi.Benchmark.Bench
             var cmp = _urumi.Registry;
             var urumiPosition = cmp.Position;
             var urumiVelocity = cmp.Velocity.Value;
-            _urumiQuery = _urumi.CreateQuery(QueryFilter
+            _urumiGroup = _urumi.CreateGroup(GroupFilter
                 .Include(cmp.Position)
                 .Include(cmp.Velocity));
 
@@ -77,7 +77,7 @@ namespace NUrumi.Benchmark.Bench
             var positionField = cmp.Position;
             var velocityField = cmp.Velocity.Value;
 
-            foreach (var entity in _urumiQuery)
+            foreach (var entity in _urumiGroup)
             {
                 ref var velocity = ref velocityField.GetRef(entity);
                 ref var position = ref positionField.GetRef(entity);

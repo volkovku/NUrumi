@@ -10,7 +10,7 @@ namespace NUrumi
     /// <typeparam name="TValue"></typeparam>
     public sealed class IndexField<TValue> :
         IField<TValue>,
-        IQuery,
+        IGroup,
         IContextResizeCallback
         where TValue : unmanaged, IEquatable<TValue>
     {
@@ -127,10 +127,10 @@ namespace NUrumi
             _offset = fieldOffset;
             _currentValues = new TValue?[storage.Entities.Length];
             _storage = storage;
-            _storage.AddQuery(this);
+            _storage.AddGroup(this);
         }
 
-        void IQuery.Update(int entityId, bool added)
+        void IGroup.Update(int entityId, bool added)
         {
             if (added)
             {

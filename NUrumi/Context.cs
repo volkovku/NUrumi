@@ -15,7 +15,7 @@ namespace NUrumi
         private readonly ComponentStorageData[] _componentStorages;
         private readonly int _reuseEntitiesBarrier;
         private readonly Queue<int> _recycledEntities;
-        private readonly Dictionary<IQueryFilter, Query> _queries;
+        private readonly Dictionary<IGroupFilter, Group> _groups;
         private readonly List<IContextResizeCallback> _resizeCallbacks;
 
         private int[] _entities;
@@ -45,7 +45,7 @@ namespace NUrumi
             _reuseEntitiesBarrier = config.InitialReuseEntitiesBarrier;
             _resizeCallbacks = new List<IContextResizeCallback>();
             _componentStorages = InitRegistry(registry, config, _resizeCallbacks);
-            _queries = new Dictionary<IQueryFilter, Query>();
+            _groups = new Dictionary<IGroupFilter, Group>();
             Components = _componentStorages.Select(_ => _.Component).ToArray();
         }
 
@@ -95,9 +95,9 @@ namespace NUrumi
                     _componentStorages[i].ResizeEntities(newSize);
                 }
 
-                foreach (var query in _queries.Values)
+                foreach (var group in _groups.Values)
                 {
-                    query.ResizeEntities(newSize);
+                    group.ResizeEntities(newSize);
                 }
 
                 foreach (var resizeCallback in _resizeCallbacks)
@@ -164,18 +164,18 @@ namespace NUrumi
         }
 
         /// <summary>
-        /// Creates entities query with specified filter.
+        /// Creates entities group with specified filter.
         /// </summary>
         /// <param name="filter">A filter for entities.</param>
-        /// <returns>Return query with entities correspond to specified filter.</returns>
-        public Query CreateQuery(IQueryFilter filter)
+        /// <returns>Return group with entities correspond to specified filter.</returns>
+        public Group CreateGroup(IGroupFilter filter)
         {
-            if (_queries.TryGetValue(filter, out var query))
+            if (_groups.TryGetValue(filter, out var group))
             {
-                return query;
+                return group;
             }
 
-            query = Query.Create(filter, _entities.Length);
+            group = Group.Create(filter, _entities.Length);
             for (var i = 0; i < _entities.Length; i++)
             {
                 if (_entities[i] <= 0)
@@ -183,11 +183,11 @@ namespace NUrumi
                     continue;
                 }
 
-                query.Update(i);
+                group.Update(i);
             }
 
-            _queries.Add(filter, query);
-            return query;
+            _groups.Add(filter, group);
+            return group;
         }
 
         private static ComponentStorageData[] InitRegistry(

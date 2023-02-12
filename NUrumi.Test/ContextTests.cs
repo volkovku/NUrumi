@@ -153,59 +153,59 @@ namespace NUrumi.Test
         }
 
         [Test]
-        public void Queries()
+        public void Groups()
         {
             var context = new Context<TestRegistry>();
             var position = context.Registry.Position;
             var velocity = context.Registry.Velocity;
 
-            var queryPosition = context.CreateQuery(QueryFilter.Include(context.Registry.Position));
-            var queryVelocity = context.CreateQuery(QueryFilter.Include(context.Registry.Velocity));
-            var queryWithBoth = context.CreateQuery(
-                QueryFilter
+            var groupPosition = context.CreateGroup(GroupFilter.Include(context.Registry.Position));
+            var groupVelocity = context.CreateGroup(GroupFilter.Include(context.Registry.Velocity));
+            var groupWithBoth = context.CreateGroup(
+                GroupFilter
                     .Include(context.Registry.Position)
                     .Include(context.Registry.Velocity));
 
             var entityWithPosition = context.CreateEntity();
             position.Set(entityWithPosition, Vector2.One);
-            queryWithBoth.EntitiesCount.Should().Be(0);
+            groupWithBoth.EntitiesCount.Should().Be(0);
 
             var entityWithVelocity = context.CreateEntity();
             velocity.Set(entityWithVelocity, Vector2.One);
-            queryWithBoth.EntitiesCount.Should().Be(0);
+            groupWithBoth.EntitiesCount.Should().Be(0);
 
             var entityWithBoth1 = context.CreateEntity();
             position.Set(entityWithBoth1, Vector2.Zero);
             velocity.Set(entityWithBoth1, Vector2.One);
-            queryWithBoth.EntitiesCount.Should().Be(1);
+            groupWithBoth.EntitiesCount.Should().Be(1);
 
             var entityWithBoth2 = context.CreateEntity();
             position.Set(entityWithBoth2, Vector2.One);
             velocity.Set(entityWithBoth2, Vector2.Zero);
-            queryWithBoth.EntitiesCount.Should().Be(2);
+            groupWithBoth.EntitiesCount.Should().Be(2);
 
-            var entitiesInQuery = (int[]) null;
-            var entitiesInQueryCount = queryWithBoth.GetEntities(ref entitiesInQuery);
-            entitiesInQueryCount.Should().Be(2);
-            entitiesInQuery.Length.Should().Be(2);
-            entitiesInQuery[0].Should().Be(entityWithBoth1);
-            entitiesInQuery[1].Should().Be(entityWithBoth2);
+            var entitiesInGroup = (int[]) null;
+            var entitiesInGroupCount = groupWithBoth.GetEntities(ref entitiesInGroup);
+            entitiesInGroupCount.Should().Be(2);
+            entitiesInGroup.Length.Should().Be(2);
+            entitiesInGroup[0].Should().Be(entityWithBoth1);
+            entitiesInGroup[1].Should().Be(entityWithBoth2);
 
             context.Registry.Velocity.RemoveFrom(entityWithBoth1).Should().Be(true);
-            queryWithBoth.EntitiesCount.Should().Be(1);
+            groupWithBoth.EntitiesCount.Should().Be(1);
 
             context.Registry.Position.RemoveFrom(entityWithBoth2).Should().Be(true);
-            queryWithBoth.EntitiesCount.Should().Be(0);
+            groupWithBoth.EntitiesCount.Should().Be(0);
 
-            queryPosition.EntitiesCount.Should().Be(2);
-            queryPosition.GetEntities(ref entitiesInQuery);
-            entitiesInQuery[0].Should().Be(entityWithPosition);
-            entitiesInQuery[1].Should().Be(entityWithBoth1);
+            groupPosition.EntitiesCount.Should().Be(2);
+            groupPosition.GetEntities(ref entitiesInGroup);
+            entitiesInGroup[0].Should().Be(entityWithPosition);
+            entitiesInGroup[1].Should().Be(entityWithBoth1);
 
-            queryVelocity.EntitiesCount.Should().Be(2);
-            queryVelocity.GetEntities(ref entitiesInQuery);
-            entitiesInQuery[0].Should().Be(entityWithVelocity);
-            entitiesInQuery[1].Should().Be(entityWithBoth2);
+            groupVelocity.EntitiesCount.Should().Be(2);
+            groupVelocity.GetEntities(ref entitiesInGroup);
+            entitiesInGroup[0].Should().Be(entityWithVelocity);
+            entitiesInGroup[1].Should().Be(entityWithBoth2);
         }
 
         [Test]
@@ -215,8 +215,8 @@ namespace NUrumi.Test
             var positionComponent = context.Registry.Position;
             var position = context.Registry.Position;
             var velocity = context.Registry.Velocity;
-            var query = context.CreateQuery(
-                QueryFilter
+            var group = context.CreateGroup(
+                GroupFilter
                     .Include(context.Registry.Position)
                     .Include(context.Registry.Velocity));
 
@@ -226,22 +226,22 @@ namespace NUrumi.Test
                 var entity = context.CreateEntity();
                 entity.Set(position, Vector2.One);
                 entity.Set(velocity, Vector2.Zero);
-                query.EntitiesCount.Should().Be(i + 1);
+                group.EntitiesCount.Should().Be(i + 1);
             }
 
             var ix = 0;
-            foreach (var entity in query)
+            foreach (var entity in group)
             {
                 if (ix % 2 == 0)
                 {
                     entity.Remove(positionComponent);
                 }
 
-                query.EntitiesCount.Should().Be(entitiesCount);
+                group.EntitiesCount.Should().Be(entitiesCount);
                 ix += 1;
             }
 
-            query.EntitiesCount.Should().Be(entitiesCount / 2);
+            group.EntitiesCount.Should().Be(entitiesCount / 2);
         }
 
         [Test]

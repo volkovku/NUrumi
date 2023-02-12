@@ -13,11 +13,11 @@ namespace NUrumi.Benchmark.Bench
         public void Urumi()
         {
             var context = new Context<UrumiRegistry>();
-            var urumiOnlyPos = context.CreateQuery(QueryFilter
+            var urumiOnlyPos = context.CreateGroup(GroupFilter
                 .Include(context.Registry.Position)
                 .Exclude(context.Registry.Velocity));
 
-            var urumiPosAndVel = context.CreateQuery(QueryFilter
+            var urumiPosAndVel = context.CreateGroup(GroupFilter
                 .Include(context.Registry.Position)
                 .Include(context.Registry.Velocity));
 

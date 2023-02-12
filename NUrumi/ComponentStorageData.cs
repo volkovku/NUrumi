@@ -18,8 +18,8 @@ namespace NUrumi
         internal int RecordsLastOffset;
         internal int RecordsCount;
 
-        internal IQuery[] Queries = new IQuery[10];
-        internal int QueriesCount;
+        internal IGroup[] Groups = new IGroup[10];
+        internal int GroupsCount;
 
         public unsafe ComponentStorageData(
             IComponent component,
@@ -37,16 +37,16 @@ namespace NUrumi
             FillWithZero(Records, RecordsCapacity * ComponentSize);
         }
 
-        internal void AddQuery(IQuery query)
+        internal void AddGroup(IGroup group)
         {
-            var index = QueriesCount;
-            if (index == Queries.Length)
+            var index = GroupsCount;
+            if (index == Groups.Length)
             {
-                Array.Resize(ref Queries, QueriesCount << 1);
+                Array.Resize(ref Groups, GroupsCount << 1);
             }
 
-            Queries[index] = query;
-            QueriesCount += 1;
+            Groups[index] = group;
+            GroupsCount += 1;
         }
 
         internal static unsafe void FillWithZero(byte* array, int size)
@@ -236,8 +236,8 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void UpdateQueries(ComponentStorageData data, int entityIndex, bool added)
         {
-            var queries = data.Queries;
-            var queriesCount = data.QueriesCount;
+            var queries = data.Groups;
+            var queriesCount = data.GroupsCount;
             for (var i = 0; i < queriesCount; i++)
             {
                 queries[i].Update(entityIndex, added);

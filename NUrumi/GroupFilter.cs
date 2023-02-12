@@ -4,17 +4,17 @@ using NUrumi.Exceptions;
 
 namespace NUrumi
 {
-    public interface IQueryFilter
+    public interface IGroupFilter
     {
         IReadOnlyCollection<IComponent> Included { get; }
         IReadOnlyCollection<IComponent> Excluded { get; }
-        IQueryFilter Include(IComponent component);
-        IQueryFilter Exclude(IComponent component);
+        IGroupFilter Include(IComponent component);
+        IGroupFilter Exclude(IComponent component);
     }
 
-    public static class QueryFilter
+    public static class GroupFilter
     {
-        public static IQueryFilter Include(IComponent component)
+        public static IGroupFilter Include(IComponent component)
         {
             return new Instance(
                 new HashSet<IComponent> {component},
@@ -22,7 +22,7 @@ namespace NUrumi
                 component.GetHashCode());
         }
 
-        public static IQueryFilter Exclude(IComponent component)
+        public static IGroupFilter Exclude(IComponent component)
         {
             return new Instance(
                 new HashSet<IComponent>(),
@@ -30,7 +30,7 @@ namespace NUrumi
                 component.GetHashCode());
         }
 
-        private class Instance : IQueryFilter, IEquatable<Instance>
+        private class Instance : IGroupFilter, IEquatable<Instance>
         {
             private readonly HashSet<IComponent> _include;
             private readonly HashSet<IComponent> _exclude;
@@ -39,12 +39,12 @@ namespace NUrumi
             public IReadOnlyCollection<IComponent> Included => _include;
             public IReadOnlyCollection<IComponent> Excluded => _exclude;
 
-            public IQueryFilter Include(IComponent component)
+            public IGroupFilter Include(IComponent component)
             {
                 if (_exclude.Contains(component))
                 {
                     throw new NUrumiException(
-                        $"Query filter already has component '{component.GetType().Name}' " +
+                        $"Group filter already has component '{component.GetType().Name}' " +
                         "in exclude part");
                 }
 
@@ -54,12 +54,12 @@ namespace NUrumi
                     (_hashCode * 397) ^ component.GetHashCode());
             }
 
-            public IQueryFilter Exclude(IComponent component)
+            public IGroupFilter Exclude(IComponent component)
             {
                 if (_include.Contains(component))
                 {
                     throw new NUrumiException(
-                        $"Query filter already has component '{component.GetType().Name}' " +
+                        $"Group filter already has component '{component.GetType().Name}' " +
                         "in include part");
                 }
 
