@@ -5,13 +5,17 @@ namespace NUrumi
 {
     public sealed class EntitiesSet
     {
+        internal const int Deferred = -1;
+        internal const int AppliedEarly = 0;
+        internal const int Applied = 1;
+
         public static readonly EntitiesSet Empty = new EntitiesSet(0);
 
         private int[] _entitiesIndex;
         private int[] _denseEntities;
         private int _entitiesCount;
 
-        private DeferredOperation[] _deferredOperations;
+        private int[] _deferredOperations;
         private int _deferredOperationsCount;
         private int _locksCount;
 
@@ -21,7 +25,7 @@ namespace NUrumi
             _denseEntities = new int[entitiesCapacity];
             _entitiesCount = 0;
 
-            _deferredOperations = new DeferredOperation[100];
+            _deferredOperations = new int[100];
             _deferredOperationsCount = 0;
             _locksCount = 0;
         }
@@ -63,23 +67,23 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Add(int entityIndex)
+        internal int Add(int entityIndex)
         {
             if (AddDeferredOperation(false, entityIndex))
             {
-                return;
+                return Deferred;
             }
 
-            AddWithoutLockChecks(entityIndex);
+            return AddWithoutLockChecks(entityIndex);
         }
 
-        private void AddWithoutLockChecks(int entityIndex)
+        private int AddWithoutLockChecks(int entityIndex)
         {
             var denseIndex = _entitiesIndex[entityIndex];
             if (denseIndex != 0)
             {
                 // Already added
-                return;
+                return AppliedEarly;
             }
 
             denseIndex = _entitiesCount;
@@ -91,33 +95,35 @@ namespace NUrumi
             _entitiesIndex[entityIndex] = denseIndex + 1;
             _denseEntities[denseIndex] = entityIndex;
             _entitiesCount += 1;
+
+            return Applied;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Remove(int entityIndex)
+        internal int Remove(int entityIndex)
         {
             if (AddDeferredOperation(false, entityIndex))
             {
-                return;
+                return Deferred;
             }
 
-            RemoveWithoutLockChecks(entityIndex);
+            return RemoveWithoutLockChecks(entityIndex);
         }
 
-        private void RemoveWithoutLockChecks(int entityIndex)
+        private int RemoveWithoutLockChecks(int entityIndex)
         {
             var denseIndex = _entitiesIndex[entityIndex];
             if (denseIndex == 0)
             {
                 // Already removed`
-                return;
+                return AppliedEarly;
             }
 
             if (denseIndex == _entitiesCount)
             {
                 _entitiesIndex[entityIndex] = 0;
                 _entitiesCount -= 1;
-                return;
+                return Applied;
             }
 
             _entitiesCount -= 1;
@@ -125,6 +131,8 @@ namespace NUrumi
             _denseEntities[denseIndex - 1] = lastIndex;
             _entitiesIndex[lastIndex] = denseIndex;
             _entitiesIndex[entityIndex] = 0;
+
+            return Applied;
         }
 
         private void Unlock()
@@ -135,13 +143,13 @@ namespace NUrumi
                 for (var i = 0; i < _deferredOperationsCount; i++)
                 {
                     ref var operation = ref _deferredOperations[i];
-                    if (operation.Added)
+                    if (operation >= 0)
                     {
-                        AddWithoutLockChecks(operation.EntityIndex);
+                        AddWithoutLockChecks(operation);
                     }
                     else
                     {
-                        RemoveWithoutLockChecks(operation.EntityIndex);
+                        RemoveWithoutLockChecks(-(operation + 1));
                     }
                 }
 
@@ -162,10 +170,7 @@ namespace NUrumi
                 Array.Resize(ref _deferredOperations, ix << 1);
             }
 
-            ref var operation = ref _deferredOperations[ix];
-            operation.Added = added;
-            operation.EntityIndex = entityIndex;
-
+            _deferredOperations[ix] = added ? entityIndex : -entityIndex - 1;
             return true;
         }
 
@@ -201,12 +206,6 @@ namespace NUrumi
             {
                 _set.Unlock();
             }
-        }
-
-        private struct DeferredOperation
-        {
-            public bool Added;
-            public int EntityIndex;
         }
     }
 }

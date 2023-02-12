@@ -240,7 +240,7 @@ namespace NUrumi.Test
                 group.EntitiesCount.Should().Be(entitiesCount);
                 ix += 1;
             }
-
+            
             group.EntitiesCount.Should().Be(entitiesCount / 2);
         }
 

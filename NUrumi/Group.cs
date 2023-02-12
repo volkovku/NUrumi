@@ -1,4 +1,7 @@
-﻿namespace NUrumi
+﻿using System;
+using System.Runtime.CompilerServices;
+
+namespace NUrumi
 {
     /// <summary>
     /// Represents a group of entities.
@@ -9,6 +12,16 @@
         private readonly ComponentStorageData[] _componentStorages;
         private readonly bool _singleInclude;
         private readonly EntitiesSet _entities;
+        private int[] _deferredOperations;
+        private int _deferredOperationsCount;
+        private int _locksCount;
+
+        /// <summary>
+        /// An event which raised when the group was changed.
+        /// </summary>
+        /// <param name="entityIndex">An index of entity which was added or removed from group.</param>
+        /// <param name="add">If true - an entity was added; otherwise - removed.</param>
+        public delegate void GroupChangedEvent(int entityIndex, bool add);
 
         /// <summary>
         /// Creates a new group with specified filter and initial capacity.
@@ -52,7 +65,13 @@
             _componentStorages = componentStorages;
             _singleInclude = conditions.Length == 1 && conditions[0];
             _entities = new EntitiesSet(entitiesCapacity);
+            _deferredOperations = new int[100];
         }
+
+        /// <summary>
+        /// An event which raised when this group changed.
+        /// </summary>
+        public event GroupChangedEvent OnGroupChanged;
 
         /// <summary>
         /// Count of entities in this group.
@@ -74,9 +93,10 @@
         /// Enumerates an entities in this group.
         /// </summary>
         /// <returns>Returns an enumerator of entities.</returns>
-        public EntitiesSet.Enumerator GetEnumerator()
+        public Enumerator GetEnumerator()
         {
-            return _entities.GetEnumerator();
+            _locksCount += 1;
+            return new Enumerator(this, _entities.GetEnumerator());
         }
 
         void IGroup.Update(int entityIndex, bool added)
@@ -85,11 +105,11 @@
             {
                 if (added)
                 {
-                    _entities.Add(entityIndex);
+                    AddInternal(entityIndex);
                 }
                 else
                 {
-                    _entities.Remove(entityIndex);
+                    RemoveInternal(entityIndex);
                 }
 
                 return;
@@ -107,16 +127,127 @@
                     continue;
                 }
 
-                _entities.Remove(entityIndex);
+                RemoveInternal(entityIndex);
                 return;
             }
 
-            _entities.Add(entityIndex);
+            AddInternal(entityIndex);
         }
 
         internal void ResizeEntities(int newSize)
         {
             _entities.ResizeEntities(newSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AddInternal(int entityIndex)
+        {
+            var resolution = _entities.Add(entityIndex);
+            if (resolution == EntitiesSet.AppliedEarly)
+            {
+                return;
+            }
+
+            if (resolution == EntitiesSet.Applied)
+            {
+                var h = OnGroupChanged;
+                h?.Invoke(entityIndex, true);
+                return;
+            }
+
+            var ix = ++_deferredOperationsCount - 1;
+            if (ix == _deferredOperations.Length)
+            {
+                Array.Resize(ref _deferredOperations, ix << 1);
+            }
+
+            _deferredOperations[ix] = entityIndex;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void RemoveInternal(int entityIndex)
+        {
+            var resolution = _entities.Remove(entityIndex);
+            if (resolution == EntitiesSet.AppliedEarly)
+            {
+                return;
+            }
+
+            if (resolution == EntitiesSet.Applied)
+            {
+                var h = OnGroupChanged;
+                h?.Invoke(entityIndex, true);
+                return;
+            }
+
+            var ix = ++_deferredOperationsCount - 1;
+            if (ix == _deferredOperations.Length)
+            {
+                Array.Resize(ref _deferredOperations, ix << 1);
+            }
+
+            _deferredOperations[ix] = -entityIndex - 1;
+        }
+
+        private void Unlock()
+        {
+            _locksCount -= 1;
+
+            if (_locksCount == 0 && _deferredOperationsCount > 0)
+            {
+                var h = OnGroupChanged;
+                if (h == null)
+                {
+                    _deferredOperationsCount = 0;
+                    return;
+                }
+
+                for (var i = 0; i < _deferredOperationsCount; i++)
+                {
+                    ref var operation = ref _deferredOperations[i];
+                    if (operation > 0)
+                    {
+                        h(operation, true);
+                    }
+                    else
+                    {
+                        h(-(operation + 1), false);
+                    }
+                }
+
+                _deferredOperationsCount = 0;
+            }
+        }
+
+        public struct Enumerator : IDisposable
+        {
+            private readonly Group _group;
+            private EntitiesSet.Enumerator _setEnumerator;
+
+            public Enumerator(Group group, EntitiesSet.Enumerator setEnumerator)
+            {
+                _group = group;
+                _setEnumerator = setEnumerator;
+            }
+
+            public int Current
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _setEnumerator.Current;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext()
+            {
+                return _setEnumerator.MoveNext();
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void Dispose()
+            {
+                _setEnumerator.Dispose();
+                _group.Unlock();
+            }
         }
     }
 }
