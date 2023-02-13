@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace NUrumi
@@ -6,14 +7,16 @@ namespace NUrumi
     /// <summary>
     /// Represents a group of entities.
     /// </summary>
-    public sealed class Group : IGroup
+    public sealed class Group : IUpdateCallback
     {
+        private static readonly DeferredOperationComparer DeferredOperationComparerInstance
+            = new DeferredOperationComparer();
+
         private readonly bool[] _conditions;
         private readonly ComponentStorageData[] _componentStorages;
         private readonly bool _singleInclude;
         private readonly EntitiesSet _entities;
-        private int[] _deferredOperations;
-        private int _deferredOperationsCount;
+        private readonly List<int> _deferredOperations;
         private int _locksCount;
 
         /// <summary>
@@ -41,7 +44,7 @@ namespace NUrumi
             {
                 conditions[i] = true;
                 componentStorages[i] = component.Storage;
-                component.Storage.AddGroup(group);
+                component.Storage.AddUpdateCallback(group);
                 i++;
             }
 
@@ -49,7 +52,7 @@ namespace NUrumi
             {
                 conditions[i] = true;
                 componentStorages[i] = component.Storage;
-                component.Storage.AddGroup(group);
+                component.Storage.AddUpdateCallback(group);
                 i++;
             }
 
@@ -65,7 +68,7 @@ namespace NUrumi
             _componentStorages = componentStorages;
             _singleInclude = conditions.Length == 1 && conditions[0];
             _entities = new EntitiesSet(entitiesCapacity);
-            _deferredOperations = new int[100];
+            _deferredOperations = new List<int>();
         }
 
         /// <summary>
@@ -99,7 +102,7 @@ namespace NUrumi
             return new Enumerator(this, _entities.GetEnumerator());
         }
 
-        void IGroup.Update(int entityIndex, bool added)
+        void IUpdateCallback.Update(int entityIndex, bool added)
         {
             if (_singleInclude)
             {
@@ -142,6 +145,12 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AddInternal(int entityIndex)
         {
+            if (OnGroupChanged == null)
+            {
+                _entities.Add(entityIndex);
+                return;
+            }
+            
             var resolution = _entities.Add(entityIndex);
             if (resolution == EntitiesSet.AppliedEarly)
             {
@@ -155,18 +164,22 @@ namespace NUrumi
                 return;
             }
 
-            var ix = ++_deferredOperationsCount - 1;
-            if (ix == _deferredOperations.Length)
+            var ix = _deferredOperations.BinarySearch(entityIndex, DeferredOperationComparerInstance);
+            if (ix < 0)
             {
-                Array.Resize(ref _deferredOperations, ix << 1);
+                _deferredOperations.Insert(-(ix + 1), entityIndex);
             }
-
-            _deferredOperations[ix] = entityIndex;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void RemoveInternal(int entityIndex)
         {
+            if (OnGroupChanged == null)
+            {
+                _entities.Remove(entityIndex);
+                return;
+            }
+
             var resolution = _entities.Remove(entityIndex);
             if (resolution == EntitiesSet.AppliedEarly)
             {
@@ -176,35 +189,33 @@ namespace NUrumi
             if (resolution == EntitiesSet.Applied)
             {
                 var h = OnGroupChanged;
-                h?.Invoke(entityIndex, true);
+                h?.Invoke(entityIndex, false);
                 return;
             }
 
-            var ix = ++_deferredOperationsCount - 1;
-            if (ix == _deferredOperations.Length)
+            var ix = _deferredOperations.BinarySearch(entityIndex, DeferredOperationComparerInstance);
+            if (ix < 0)
             {
-                Array.Resize(ref _deferredOperations, ix << 1);
+                _deferredOperations.Insert(-(ix + 1), -entityIndex - 1);
             }
-
-            _deferredOperations[ix] = -entityIndex - 1;
         }
 
         private void Unlock()
         {
             _locksCount -= 1;
 
-            if (_locksCount == 0 && _deferredOperationsCount > 0)
+            if (_locksCount == 0 && _deferredOperations.Count > 0)
             {
                 var h = OnGroupChanged;
                 if (h == null)
                 {
-                    _deferredOperationsCount = 0;
+                    _deferredOperations.Clear();
                     return;
                 }
 
-                for (var i = 0; i < _deferredOperationsCount; i++)
+                for (var i = 0; i < _deferredOperations.Count; i++)
                 {
-                    ref var operation = ref _deferredOperations[i];
+                    var operation = _deferredOperations[i];
                     if (operation > 0)
                     {
                         h(operation, true);
@@ -215,7 +226,7 @@ namespace NUrumi
                     }
                 }
 
-                _deferredOperationsCount = 0;
+                _deferredOperations.Clear();
             }
         }
 
@@ -247,6 +258,29 @@ namespace NUrumi
             {
                 _setEnumerator.Dispose();
                 _group.Unlock();
+            }
+        }
+
+        private class DeferredOperationComparer : IComparer<int>
+        {
+            public int Compare(int x, int y)
+            {
+                if (x == y)
+                {
+                    return 0;
+                }
+
+                if (x < 0)
+                {
+                    x = -(x + 1);
+                }
+
+                if (y < 0)
+                {
+                    y = -(x + 1);
+                }
+
+                return x.CompareTo(y);
             }
         }
     }

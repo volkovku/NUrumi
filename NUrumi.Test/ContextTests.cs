@@ -2,6 +2,7 @@
 using System.Numerics;
 using FluentAssertions;
 using NUnit.Framework;
+using NUrumi.Test.Model;
 
 namespace NUrumi.Test
 {
@@ -152,61 +153,7 @@ namespace NUrumi.Test
             field3.Get(entityId).Should().Be(long.MaxValue / 2);
         }
 
-        [Test]
-        public void Groups()
-        {
-            var context = new Context<TestRegistry>();
-            var position = context.Registry.Position;
-            var velocity = context.Registry.Velocity;
 
-            var groupPosition = context.CreateGroup(GroupFilter.Include(context.Registry.Position));
-            var groupVelocity = context.CreateGroup(GroupFilter.Include(context.Registry.Velocity));
-            var groupWithBoth = context.CreateGroup(
-                GroupFilter
-                    .Include(context.Registry.Position)
-                    .Include(context.Registry.Velocity));
-
-            var entityWithPosition = context.CreateEntity();
-            position.Set(entityWithPosition, Vector2.One);
-            groupWithBoth.EntitiesCount.Should().Be(0);
-
-            var entityWithVelocity = context.CreateEntity();
-            velocity.Set(entityWithVelocity, Vector2.One);
-            groupWithBoth.EntitiesCount.Should().Be(0);
-
-            var entityWithBoth1 = context.CreateEntity();
-            position.Set(entityWithBoth1, Vector2.Zero);
-            velocity.Set(entityWithBoth1, Vector2.One);
-            groupWithBoth.EntitiesCount.Should().Be(1);
-
-            var entityWithBoth2 = context.CreateEntity();
-            position.Set(entityWithBoth2, Vector2.One);
-            velocity.Set(entityWithBoth2, Vector2.Zero);
-            groupWithBoth.EntitiesCount.Should().Be(2);
-
-            var entitiesInGroup = (int[]) null;
-            var entitiesInGroupCount = groupWithBoth.GetEntities(ref entitiesInGroup);
-            entitiesInGroupCount.Should().Be(2);
-            entitiesInGroup.Length.Should().Be(2);
-            entitiesInGroup[0].Should().Be(entityWithBoth1);
-            entitiesInGroup[1].Should().Be(entityWithBoth2);
-
-            context.Registry.Velocity.RemoveFrom(entityWithBoth1).Should().Be(true);
-            groupWithBoth.EntitiesCount.Should().Be(1);
-
-            context.Registry.Position.RemoveFrom(entityWithBoth2).Should().Be(true);
-            groupWithBoth.EntitiesCount.Should().Be(0);
-
-            groupPosition.EntitiesCount.Should().Be(2);
-            groupPosition.GetEntities(ref entitiesInGroup);
-            entitiesInGroup[0].Should().Be(entityWithPosition);
-            entitiesInGroup[1].Should().Be(entityWithBoth1);
-
-            groupVelocity.EntitiesCount.Should().Be(2);
-            groupVelocity.GetEntities(ref entitiesInGroup);
-            entitiesInGroup[0].Should().Be(entityWithVelocity);
-            entitiesInGroup[1].Should().Be(entityWithBoth2);
-        }
 
         [Test]
         public void QueriesDeferredOperations()
@@ -285,34 +232,6 @@ namespace NUrumi.Test
             children.Contains(childEntity1).Should().BeTrue();
             children.Contains(childEntity2).Should().BeFalse();
             children.Contains(childEntity3).Should().BeTrue();
-        }
-
-        private sealed class TestRegistry : Registry<TestRegistry>
-        {
-            public TestComponent Test;
-            public Position Position;
-            public Velocity Velocity;
-            public Parent Parent;
-        }
-
-        private sealed class TestComponent : Component<TestComponent>
-        {
-            public Field<int> Field1;
-            public Field<byte> Field2;
-            public Field<long> Field3;
-        }
-
-        public sealed class Position : Component<Position>.Of<Vector2>
-        {
-        }
-
-        public sealed class Velocity : Component<Velocity>.Of<Vector2>
-        {
-        }
-
-        public sealed class Parent : Component<Parent>
-        {
-            public IndexField<int> Value;
         }
     }
 }

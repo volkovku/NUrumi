@@ -1,12 +1,12 @@
 ﻿namespace NUrumi
 {
     /// <summary>
-    /// Describes a group of entities.
+    /// Describes a callback of entity update.
     /// </summary>
-    public interface IGroup
+    public interface IUpdateCallback
     {
         /// <summary>
-        /// Raises when any component of the group was added or removed to entity.
+        /// Raises when any component of was added or removed to entity.
         /// </summary>
         /// <param name="entityIndex">An index of changed entity.</param>
         /// <param name="added">If true - component was added; otherwise - removed.</param>

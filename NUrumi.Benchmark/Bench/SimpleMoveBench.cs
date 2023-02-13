@@ -24,7 +24,7 @@ namespace NUrumi.Benchmark.Bench
             _urumi = new Context<UrumiRegistry>();
             var cmp = _urumi.Registry;
             var urumiPosition = cmp.Position;
-            var urumiVelocity = cmp.Velocity.Value;
+            var urumiVelocity = cmp.Velocity;
             _urumiGroup = _urumi.CreateGroup(GroupFilter
                 .Include(cmp.Position)
                 .Include(cmp.Velocity));
@@ -74,13 +74,13 @@ namespace NUrumi.Benchmark.Bench
         {
             var stub = 0;
             var cmp = _urumi.Registry;
-            var positionField = cmp.Position;
-            var velocityField = cmp.Velocity.Value;
+            var positionCmp = cmp.Position;
+            var velocityCmp = cmp.Velocity;
 
             foreach (var entity in _urumiGroup)
             {
-                ref var velocity = ref velocityField.GetRef(entity);
-                ref var position = ref positionField.GetRef(entity);
+                ref var velocity = ref entity.GetRef(velocityCmp);
+                ref var position = ref entity.GetRef(positionCmp);
                 position += velocity;
                 stub += (int) velocity.X;
             }
@@ -132,9 +132,8 @@ namespace NUrumi.Benchmark.Bench
         {
         }
 
-        private class UrumiVelocity : Component<UrumiVelocity>
+        private class UrumiVelocity : Component<UrumiVelocity>.Of<Vector2>
         {
-            public Field<Vector2> Value;
         }
 
         private struct LeoPosition

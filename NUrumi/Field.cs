@@ -3,7 +3,7 @@
 namespace NUrumi
 {
     /// <summary>
-    /// Represents a field of component.
+    /// Represents a field of component which can effective operate with struct types.
     /// </summary>
     /// <typeparam name="TValue">A type of component field.</typeparam>
     public sealed class Field<TValue> : IField<TValue> where TValue : unmanaged
@@ -129,31 +129,90 @@ namespace NUrumi
 
     public static class FieldCompanion
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static TValue Get<TValue>(this int entityId, IField<TValue> field) where TValue : unmanaged
         {
             return field.Get(entityId);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TValue Get<TValue>(this int entityId, RefField<TValue> field) where TValue : class
+        {
+            return field.Get(entityId);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TValue Get<TComponent, TValue>(this int entityId, Component<TComponent>.OfRef<TValue> component)
+            where TComponent : Component<TComponent>, new()
+            where TValue : class
+        {
+            return component.Get(entityId);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref TValue GetRef<TValue>(this int entityId, Field<TValue> field) where TValue : unmanaged
+        {
+            return ref field.GetRef(entityId);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref TValue GetRef<TComponent, TValue>(
+            this int entityId,
+            Component<TComponent>.Of<TValue> component)
+            where TComponent : Component<TComponent>, new()
+            where TValue : unmanaged
+        {
+            return ref component.GetRef(entityId);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryGet<TValue>(this int entityId, IField<TValue> field, out TValue value)
             where TValue : unmanaged
         {
             return field.TryGet(entityId, out value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGet<TValue>(this int entityId, RefField<TValue> field, out TValue value)
+            where TValue : class
+        {
+            return field.TryGet(entityId, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGet<TComponent, TValue>(
+            this int entityId,
+            Component<TComponent>.OfRef<TValue> component,
+            out TValue value)
+            where TComponent : Component<TComponent>, new()
+            where TValue : class
+        {
+            return component.TryGet(entityId, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Set<TValue>(this int entityId, IField<TValue> field, TValue value) where TValue : unmanaged
         {
             field.Set(entityId, value);
             return entityId;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Set<TValue>(this int entityId, Field<TValue> field, TValue value) where TValue : unmanaged
+        {
+            field.Set(entityId, value);
+            return entityId;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Set<TValue>(this int entityId, RefField<TValue> field, TValue value) where TValue : class
         {
             field.Set(entityId, value);
             return entityId;
         }
     }
 
-    public interface IField<TValue> : IField where TValue : unmanaged
+    public interface IField<TValue> : IField
     {
         TValue Get(int entityIndex);
         bool TryGet(int entityIndex, out TValue value);

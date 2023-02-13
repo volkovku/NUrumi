@@ -56,8 +56,6 @@ namespace NUrumi
             _fields = fields;
             Storage = storage;
         }
-
-
     }
 
     public static class ComponentCompanion
