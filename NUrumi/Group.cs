@@ -7,7 +7,7 @@ namespace NUrumi
     /// <summary>
     /// Represents a group of entities.
     /// </summary>
-    public sealed class Group : IUpdateCallback
+    public sealed class Group<TRegistry> : IUpdateCallback where TRegistry : Registry<TRegistry>, new()
     {
         private static readonly DeferredOperationComparer DeferredOperationComparerInstance
             = new DeferredOperationComparer();
@@ -29,15 +29,16 @@ namespace NUrumi
         /// <summary>
         /// Creates a new group with specified filter and initial capacity.
         /// </summary>
+        /// <param name="context">A context of this group.</param>
         /// <param name="filter">A filter of entities as composition of components.</param>
         /// <param name="entitiesCapacity">An initial entities capacity.</param>
         /// <returns>Returns new group.</returns>
-        public static Group Create(IGroupFilter filter, int entitiesCapacity)
+        public static Group<TRegistry> Create(Context<TRegistry> context, IGroupFilter filter, int entitiesCapacity)
         {
             var componentsCount = filter.Included.Count + filter.Excluded.Count;
             var conditions = new bool[componentsCount];
             var componentStorages = new ComponentStorageData[componentsCount];
-            var group = new Group(conditions, componentStorages, entitiesCapacity);
+            var group = new Group<TRegistry>(context, conditions, componentStorages, entitiesCapacity);
 
             var i = 0;
             foreach (var component in filter.Included)
@@ -60,10 +61,12 @@ namespace NUrumi
         }
 
         private Group(
+            Context<TRegistry> context,
             bool[] conditions,
             ComponentStorageData[] componentStorages,
             int entitiesCapacity)
         {
+            Context = context;
             _conditions = conditions;
             _componentStorages = componentStorages;
             _singleInclude = conditions.Length == 1 && conditions[0];
@@ -75,6 +78,11 @@ namespace NUrumi
         /// An event which raised when this group changed.
         /// </summary>
         public event GroupChangedEvent OnGroupChanged;
+
+        /// <summary>
+        /// A context which owns this group.
+        /// </summary>
+        public readonly Context<TRegistry> Context;
 
         /// <summary>
         /// Count of entities in this group.
@@ -150,7 +158,7 @@ namespace NUrumi
                 _entities.Add(entityIndex);
                 return;
             }
-            
+
             var resolution = _entities.Add(entityIndex);
             if (resolution == EntitiesSet.AppliedEarly)
             {
@@ -232,10 +240,10 @@ namespace NUrumi
 
         public struct Enumerator : IDisposable
         {
-            private readonly Group _group;
+            private readonly Group<TRegistry> _group;
             private EntitiesSet.Enumerator _setEnumerator;
 
-            public Enumerator(Group group, EntitiesSet.Enumerator setEnumerator)
+            public Enumerator(Group<TRegistry> group, EntitiesSet.Enumerator setEnumerator)
             {
                 _group = group;
                 _setEnumerator = setEnumerator;

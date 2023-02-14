@@ -200,7 +200,95 @@ group.OnGroupChanged += (entity, add) =>
 
 ```
 
-One more ability of __*NUrumi*__ groups is that you can mutate it entities 
+One more ability of __*NUrumi*__ groups is that you can mutate it entities
 in iteration progress. All mutation will be accumulated through iteration process
 and applied when iteration was finished. So you don't need to create some temp
 buffers to interact with you entities.
+
+## Collector
+
+Collector provides an easy way to collect changes in a group or reactive fields over time.
+
+```csharp
+
+public class GameRegistry : Registry<GameRegistry>
+{
+    public HealthComponent Health;
+    public PositionComponent Position;
+    public VelocityComponent Velocity;
+    ...
+}
+
+public class HealthComponent : Component<HealthComponent>
+{
+    public ReactiveField<int> Value;
+}
+
+var context = new Context<TestRegistry>();
+var position = context.Registry.Position;
+var velocity = context.Registry.Velocity;
+var health = context.Registry.Health.Value;
+
+var group = context.CreateGroup(GroupFilter
+    .Include(position)
+    .Include(velocity));
+    
+var collector = context
+    .CreateCollector()
+    .WatchEntitiesAddedTo(group)
+    .WatchChangesOf(health);
+    
+// After this operation entity1 will be in collector
+var entity1 = context
+    .CreateEntity()
+    .Set(position, /* some position */)
+    .Set(velocity, /* some velocity */);
+    
+// After this operation entity2 will be in collector
+var entity2 = context.CreateEntity().Set(health, 100);
+
+// Collected results can be dropped by Clear method
+// after that you can collect changes of next iteration
+collector.Clear();
+
+```
+:warning:
+
+One important thing to known is that collector just collects entities which
+was touched but collector does not check actual state of entity. So if you track
+entities added to some group but other part of code removes entity from this group
+entity will present in collector until it will be clear. 
+
+For example:
+
+```csharp
+
+var group = context.CreateGroup(GroupFilter
+    .Include(position)
+    .Include(velocity));
+
+var collector = context
+    .CreateCollector()
+    .WatchEntitiesAddedTo(group);
+    
+// This code adds entitity to group
+entity
+    .Set(position, /* some position */)
+    .Set(velocity, /* some velocity */);
+    
+// This code prints true
+Console.WriteLine(collector.Has(entity));
+
+// This code removes entitity from group
+entity.Remove(position);
+
+// This code prints true
+Console.WriteLine(collector.Has(entity));
+
+// Clear collector
+collector.Clear();
+
+// This code prints false
+Console.WriteLine(collector.Has(entity));
+
+```

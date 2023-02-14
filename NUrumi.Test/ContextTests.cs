@@ -154,7 +154,6 @@ namespace NUrumi.Test
         }
 
 
-
         [Test]
         public void QueriesDeferredOperations()
         {
@@ -187,7 +186,7 @@ namespace NUrumi.Test
                 group.EntitiesCount.Should().Be(entitiesCount);
                 ix += 1;
             }
-            
+
             group.EntitiesCount.Should().Be(entitiesCount / 2);
         }
 
@@ -201,15 +200,15 @@ namespace NUrumi.Test
             var parentEntity = context.CreateEntity();
 
             var childEntity1 = context.CreateEntity();
-            parent.Set(childEntity1, parentEntity);
+            childEntity1.Set(parent, parentEntity);
 
             var childEntity2 = context.CreateEntity();
-            parent.Set(childEntity2, parentEntity);
+            childEntity2.Set(parent, parentEntity);
 
             var childEntity3 = context.CreateEntity();
-            parent.Set(childEntity3, parentEntity);
+            childEntity3.Set(parent, parentEntity);
 
-            var children = new HashSet<int>();
+            var children = new List<int>();
             foreach (var child in parent.GetEntitiesAssociatedWith(parentEntity))
             {
                 children.Add(child);

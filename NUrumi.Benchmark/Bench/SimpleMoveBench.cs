@@ -11,7 +11,7 @@ namespace NUrumi.Benchmark.Bench
         private const int EntitiesCount = 100000;
 
         private readonly Context<UrumiRegistry> _urumi;
-        private readonly Group _urumiGroup;
+        private readonly Group<UrumiRegistry> _urumiGroup;
 
         private readonly EcsWorld _leo;
         private readonly EcsFilter _leoFilter;

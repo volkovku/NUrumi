@@ -15,7 +15,7 @@ namespace NUrumi
         private readonly ComponentStorageData[] _componentStorages;
         private readonly int _reuseEntitiesBarrier;
         private readonly Queue<int> _recycledEntities;
-        private readonly Dictionary<IGroupFilter, Group> _groups;
+        private readonly Dictionary<IGroupFilter, Group<TRegistry>> _groups;
         private readonly List<IContextResizeCallback> _resizeCallbacks;
 
         private int[] _entities;
@@ -45,7 +45,7 @@ namespace NUrumi
             _reuseEntitiesBarrier = config.InitialReuseEntitiesBarrier;
             _resizeCallbacks = new List<IContextResizeCallback>();
             _componentStorages = InitRegistry(registry, config, _resizeCallbacks);
-            _groups = new Dictionary<IGroupFilter, Group>();
+            _groups = new Dictionary<IGroupFilter, Group<TRegistry>>();
             Components = _componentStorages.Select(_ => _.Component).ToArray();
         }
 
@@ -168,14 +168,14 @@ namespace NUrumi
         /// </summary>
         /// <param name="filter">A filter for entities.</param>
         /// <returns>Return group with entities correspond to specified filter.</returns>
-        public Group CreateGroup(IGroupFilter filter)
+        public Group<TRegistry> CreateGroup(IGroupFilter filter)
         {
             if (_groups.TryGetValue(filter, out var group))
             {
                 return group;
             }
 
-            group = Group.Create(filter, _entities.Length);
+            group = Group<TRegistry>.Create(this, filter, _entities.Length);
             for (var i = 0; i < _entities.Length; i++)
             {
                 if (_entities[i] <= 0)
@@ -188,6 +188,17 @@ namespace NUrumi
 
             _groups.Add(filter, group);
             return group;
+        }
+
+        /// <summary>
+        /// Create collector.
+        /// </summary>
+        /// <returns>Returns new instance of collector.</returns>
+        public Collector<TRegistry> CreateCollector()
+        {
+            var collector = new Collector<TRegistry>(this, _entities.Length);
+            _resizeCallbacks.Add(collector);
+            return collector;
         }
 
         private static ComponentStorageData[] InitRegistry(

@@ -60,6 +60,12 @@ namespace NUrumi
 
     public static class ComponentCompanion
     {
+        public static bool Has<TComponent>(this int entityId, Component<TComponent> component)
+            where TComponent : Component<TComponent>, new()
+        {
+            return component.IsAPartOf(entityId);
+        }
+
         public static bool Remove<TComponent>(this int entityId, Component<TComponent> component)
             where TComponent : Component<TComponent>, new()
         {

@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using NUrumi.Exceptions;
 
 namespace NUrumi
 {
     public sealed class EntitiesSet
     {
-        internal const int Deferred = -1;
-        internal const int AppliedEarly = 0;
-        internal const int Applied = 1;
+        public const int Deferred = -1;
+        public const int AppliedEarly = 0;
+        public const int Applied = 1;
 
         public static readonly EntitiesSet Empty = new EntitiesSet(0);
 
@@ -67,14 +68,42 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int Add(int entityIndex)
+        public int Add(int entityIndex)
         {
-            if (AddDeferredOperation(false, entityIndex))
+            return AddDeferredOperation(false, entityIndex)
+                ? Deferred
+                : AddWithoutLockChecks(entityIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int Remove(int entityIndex)
+        {
+            return AddDeferredOperation(false, entityIndex)
+                ? Deferred
+                : RemoveWithoutLockChecks(entityIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(int entityIndex)
+        {
+            return _entitiesIndex[entityIndex] != 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Clear()
+        {
+            if (_locksCount > 0)
             {
-                return Deferred;
+                throw new NUrumiException("Can't clear when entity set is locked.");
             }
 
-            return AddWithoutLockChecks(entityIndex);
+            for (var i = 0; i < _entitiesCount; i++)
+            {
+                var ix = _denseEntities[i];
+                _entitiesIndex[ix] = 0;
+            }
+
+            _entitiesCount = 0;
         }
 
         private int AddWithoutLockChecks(int entityIndex)
@@ -97,17 +126,6 @@ namespace NUrumi
             _entitiesCount += 1;
 
             return Applied;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int Remove(int entityIndex)
-        {
-            if (AddDeferredOperation(false, entityIndex))
-            {
-                return Deferred;
-            }
-
-            return RemoveWithoutLockChecks(entityIndex);
         }
 
         private int RemoveWithoutLockChecks(int entityIndex)
