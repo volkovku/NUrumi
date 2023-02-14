@@ -49,6 +49,11 @@ namespace NUrumi
         /// <returns>Returns an instance of this collector.</returns>
         public Collector<TRegistry> WatchEntitiesAddedTo(Group<TRegistry> group)
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException("Collector already disposed");
+            }
+
             if (!_listenedOnAddGroups.Add(group))
             {
                 throw new NUrumiException($"Collector already listen on add to group: {group}");
@@ -78,15 +83,20 @@ namespace NUrumi
         }
 
         /// <summary>
-        /// Watches entities which were removed to specified group.
+        /// Watches entities which were removed from specified group.
         /// </summary>
         /// <param name="group">A group to watch.</param>
         /// <returns>Returns an instance of this collector.</returns>
         public Collector<TRegistry> WatchEntitiesRemovedFrom(Group<TRegistry> group)
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException("Collector already disposed");
+            }
+
             if (!_listenedOnRemoveGroups.Add(group))
             {
-                throw new NUrumiException($"Collector already listen on remove fromm group: {group}");
+                throw new NUrumiException($"Collector already listen on remove from group: {group}");
             }
 
             if (group.Context != _context)
@@ -113,6 +123,42 @@ namespace NUrumi
         }
 
         /// <summary>
+        /// Watches entities which were added or removed from specified group.
+        /// </summary>
+        /// <param name="group">A group to watch.</param>
+        /// <returns>Returns an instance of this collector.</returns>
+        public Collector<TRegistry> WatchEntitiesAddedOrRemovedFrom(Group<TRegistry> group)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException("Collector already disposed");
+            }
+
+            if (!_listenedOnAddGroups.Add(group))
+            {
+                throw new NUrumiException($"Collector already listen on add to group: {group}");
+            }
+
+            if (!_listenedOnRemoveGroups.Add(group))
+            {
+                throw new NUrumiException($"Collector already listen on remove from group: {group}");
+            }
+
+            if (group.Context != _context)
+            {
+                throw new NUrumiException("Can't listen events from other context.");
+            }
+
+            var action = new Group<TRegistry>.GroupChangedEvent((entity, added) => _collectedEntities.Add(entity));
+
+            group.OnGroupChanged += action;
+            _unsubscribeActions.Add(() => group.OnGroupChanged -= action);
+            _listenedOnRemoveGroups.Add(group);
+
+            return this;
+        }
+
+        /// <summary>
         /// Watches entities which field value was changed.
         /// </summary>
         /// <param name="field">A field to watch.</param>
@@ -120,8 +166,13 @@ namespace NUrumi
         public Collector<TRegistry> WatchChangesOf<TValue>(ReactiveField<TValue> field)
             where TValue : unmanaged, IEquatable<TValue>
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException("Collector already disposed");
+            }
+
             var action = new ReactiveField<TValue>.OnReactiveFieldValueChangedEventHandler(
-                (component, _, entity, value, newValue) => { _collectedEntities.Add(entity); });
+                (component, _, entity, value, newValue) => _collectedEntities.Add(entity));
 
             field.OnValueChanged += action;
             _unsubscribeActions.Add(() => field.OnValueChanged -= action);

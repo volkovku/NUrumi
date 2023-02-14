@@ -10,6 +10,7 @@ __*NUrumi*__ project is free from dependencies and code generation.
 * [Core concepts](#Core-concepts)
 * [Basics](#Basics)
 * [Groups](#Groups)
+* [Collector](#Collector)
 
 ## Core concepts
 
@@ -251,6 +252,15 @@ var entity2 = context.CreateEntity().Set(health, 100);
 // after that you can collect changes of next iteration
 collector.Clear();
 
+```
+
+You can iterate over collected entities. Mutations in loop will not break it. 
+
+```csharp
+foreach (var entity in collector)
+{
+    // Do something ...
+}
 ```
 
 :warning: One important thing to known is that collector just collects entities which
