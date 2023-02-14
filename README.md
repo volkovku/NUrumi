@@ -252,9 +252,8 @@ var entity2 = context.CreateEntity().Set(health, 100);
 collector.Clear();
 
 ```
-:warning:
 
-One important thing to known is that collector just collects entities which
+:warning: One important thing to known is that collector just collects entities which
 was touched but collector does not check actual state of entity. So if you track
 entities added to some group but other part of code removes entity from this group
 entity will present in collector until it will be clear. 
