@@ -12,8 +12,13 @@ __*NUrumi*__ project is free from dependencies and code generation.
 * [Groups](#Groups)
 * [Collector](#Collector)
 * [Relationships](#Relationships)
-  * [Assign component multiple times](#Assign-component-multiple-times)
-  * [Hierarchies](#Hierarchies)
+    * [Assign component multiple times](#Assign-component-multiple-times)
+    * [Hierarchies](#Hierarchies)
+* [Fields](#Fields)
+    * [Field](#Field)
+    * [RefField](#RefField)
+    * [ReactiveField](#ReactiveField)
+    * [IndexField](#IndexField)
 
 ## Core concepts
 
@@ -257,7 +262,7 @@ collector.Clear();
 
 ```
 
-You can iterate over collected entities. Mutations in loop will not break it. 
+You can iterate over collected entities. Mutations in loop will not break it.
 
 ```csharp
 foreach (var entity in collector)
@@ -269,7 +274,7 @@ foreach (var entity in collector)
 :warning: One important thing to known is that collector just collects entities which
 was touched but collector does not check actual state of entity. So if you track
 entities added to some group but other part of code removes entity from this group
-entity will present in collector until it will be clear. 
+entity will present in collector until it will be clear.
 
 For example:
 
@@ -308,6 +313,7 @@ Console.WriteLine(collector.Has(entity));
 ## Relationships
 
 __*NUrumi*__ provides a __*Relationships*__. This mechanism provides two major possibilities:
+
 * allows to assign component multiple times
 * allows to build hierarchies
 
@@ -366,6 +372,7 @@ Relationships is an easy way to organize hierarchies. Lets see how we can create
 ```csharp
 public class GameRegistry : Registry<GameRegistry>
 {
+    public ChildOf ChildOf;
 }
 
 public class ChildOf : Relation<ChildOf>
@@ -386,5 +393,55 @@ var children = parent.Target(childOf); // [child1, child2]
 
 // Get parent
 var childParent = child1.Relationship(childOf).Single();
-
 ```
+
+## Fields
+
+__*NUrumi*__ provides a wide range of predefined fields for different purposes.
+
+### Field
+
+__*Field*__ is a simplest and most performant way to store data. __*Field*__ have only one restriction
+it can not store class, or structs which contains class. __*Field*__ is a perfect
+candidate for store positions, velocity, rotations and etc.
+
+__*Field*__ provides common methods:
+
+* ```TValue Get(int entityId)```
+* ```bool TryGet(int entityId, out TValue result)```
+* ```void Set(int entityId, TValue value)```
+
+Also __*Field*__ provides high performance methods:
+
+* ```ref TValue GetRef(int entityId)```
+* ```ref TValue GetOrAdd(int entityId)```
+* ```ref TValue GetOrSet(int entityId, TValue value)```
+
+Common scenario of __*Field*__ usage:
+
+```csharp
+// Boilerplate
+var context = new Context<GameRegistry>();
+var position = context.Registry.Position.Value; 
+var velocity = context.Registry.Velocity.Value; 
+var group = context.CreateGroup(GroupFilter
+    .Include(position)
+    .Include(velocity));
+
+// Some system executes something like this
+foreach (var entity in group)
+{
+  ref var pos = ref entity.GetRef(position);
+  ref var vel = ref entity.GetRef(velocity);
+  pos.Value += vel;
+}
+```
+
+### RefField
+
+__*RefField*__ is a sister of __*Field*__. It allows to store reference type values.
+As a handicap her hasn't high performance methods like a __*Field*__.
+
+### ReactiveField
+
+### IndexField
