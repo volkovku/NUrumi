@@ -11,6 +11,9 @@ __*NUrumi*__ project is free from dependencies and code generation.
 * [Basics](#Basics)
 * [Groups](#Groups)
 * [Collector](#Collector)
+* [Relationships](#Relationships)
+  * [Assign component multiple times](#Assign-component-multiple-times)
+  * [Hierarchies](#Hierarchies)
 
 ## Core concepts
 
@@ -299,5 +302,89 @@ collector.Clear();
 
 // This code prints false
 Console.WriteLine(collector.Has(entity));
+
+```
+
+## Relationships
+
+__*NUrumi*__ provides a __*Relationships*__. This mechanism provides two major possibilities:
+* allows to assign component multiple times
+* allows to build hierarchies
+
+### Assign component multiple times
+
+```csharp
+// Define registry wich contains Likes relationship
+public class RelationRegistry : Registry<RelationRegistry>
+{
+    public Likes Likes;
+}
+
+// Define relationship
+public class Likes : Relation<Likes>
+{
+}
+
+// Common boilerplate code
+var context = new Context<RelationRegistry>();
+var likes = context.Registry.Likes;
+
+// Define entities
+var alice = context.CreateEntity();
+
+var apples = context.CreateEntity();
+var burgers = context.CreateEntity();
+var sweets = context.CreateEntity();
+
+// Assing relationships
+alice.Add(likes, apples);
+alice.Add(likes, burgers);
+alice.Add(likes, sweets);
+
+// Get relationship; returns [apples, burgers, sweets]
+var aliceLikes = alice.Relationship(likes);
+
+// Get reverse-relationship; returns [alice]
+var whoLikeApples = apples.Target(likes);
+
+// Check is relationship exists
+alice.Has(likes, apples);
+apples.Targets(likes, alice);
+
+// Remove relationship
+alice.Remove(likes, apples);
+
+// When entity removed all relationships will removed automatically
+context.RemoveEntity(alice);
+var whoLikeSweets = sweets.Target(likes); // returns []
+```
+
+### Hierarchies
+
+Relationships is an easy way to organize hierarchies. Lets see how we can create parent-child relationship.
+
+```csharp
+public class GameRegistry : Registry<GameRegistry>
+{
+}
+
+public class ChildOf : Relation<ChildOf>
+{
+}
+
+// Common boilerplate code
+var context = new Context<RelationRegistry>();
+var childOf = context.Registry.ChildOf;
+
+// Create hierarchy
+var parent = context.CreateEntity();
+var child1 = context.CreateEntity().Add(childOf, parent);
+var child2 = context.CreateEntity().Add(childOf, parent);
+
+// Get all children of parent
+var children = parent.Target(childOf); // [child1, child2]
+
+// Get parent
+var childParent = child1.Relationship(childOf).Single();
 
 ```

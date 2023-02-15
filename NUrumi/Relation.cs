@@ -107,7 +107,7 @@ namespace NUrumi
         /// <param name="relationKind">Component which represents a kind of relationship</param>
         /// <param name="otherEntity">A second entity in relation.</param>
         /// <typeparam name="TRelationshipKind">Component which represents a kind of relationship</typeparam>
-        public static void Add<TRelationshipKind>(
+        public static int Add<TRelationshipKind>(
             this int entity,
             Relation<TRelationshipKind> relationKind,
             int otherEntity)
@@ -121,7 +121,7 @@ namespace NUrumi
 
             if (!direct.Add(otherEntity))
             {
-                return;
+                return entity;
             }
 
             if (!otherEntity.TryGet(relationKind.Reverse, out var reverse))
@@ -131,6 +131,8 @@ namespace NUrumi
             }
 
             reverse.Add(entity);
+
+            return entity;
         }
 
         /// <summary>
@@ -140,7 +142,7 @@ namespace NUrumi
         /// <param name="relationKind">Component which represents a kind of relationship.</param>
         /// <param name="otherEntity">A second entity in relation.</param>
         /// <typeparam name="TRelationshipKind">Component which represents a kind of relationship.</typeparam>
-        public static void Remove<TRelationshipKind>(
+        public static int Remove<TRelationshipKind>(
             this int entity,
             Relation<TRelationshipKind> relationKind,
             int otherEntity)
@@ -148,11 +150,13 @@ namespace NUrumi
         {
             if (!entity.TryGet(relationKind.Direct, out var direct))
             {
-                return;
+                return entity;
             }
 
             direct.Remove(otherEntity);
             otherEntity.Get(relationKind.Reverse).Remove(entity);
+
+            return entity;
         }
 
         /// <summary>
@@ -221,7 +225,7 @@ namespace NUrumi
         /// <typeparam name="TRelationshipKind">Component which represents a kind of relationship.</typeparam>
         /// <returns>Returns true if reverse-relationship exists; otherwise returns false.</returns>
         public static bool Targets<TRelationshipKind>(
-            this int entity, 
+            this int entity,
             Relation<TRelationshipKind> relationKind,
             int otherEntity)
             where TRelationshipKind : Component<TRelationshipKind>, new()
