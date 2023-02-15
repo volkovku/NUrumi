@@ -7,7 +7,8 @@ namespace NUrumi
     /// <summary>
     /// Represents a field that indexes the entities by it value.
     /// </summary>
-    /// <typeparam name="TValue"></typeparam>
+    /// <typeparam name="TValue">A type of indexed value.</typeparam>
+    // ReSharper disable once ClassNeverInstantiated.Global
     public sealed class IndexField<TValue> :
         IField<TValue>,
         IUpdateCallback,
@@ -130,7 +131,11 @@ namespace NUrumi
             _storage.AddUpdateCallback(this);
         }
 
-        void IUpdateCallback.Update(int entityId, bool added)
+        void IUpdateCallback.BeforeChange(int entityIndex, bool added)
+        {
+        }
+
+        void IUpdateCallback.AfterChange(int entityId, bool added)
         {
             if (added)
             {

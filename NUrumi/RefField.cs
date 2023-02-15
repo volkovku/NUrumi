@@ -113,7 +113,11 @@ namespace NUrumi
             _storage.AddUpdateCallback(this);
         }
 
-        void IUpdateCallback.Update(int entityIndex, bool added)
+        void IUpdateCallback.BeforeChange(int entityIndex, bool added)
+        {
+        }
+
+        void IUpdateCallback.AfterChange(int entityIndex, bool added)
         {
             if (added)
             {

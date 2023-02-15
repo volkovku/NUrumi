@@ -110,7 +110,11 @@ namespace NUrumi
             return new Enumerator(this, _entities.GetEnumerator());
         }
 
-        void IUpdateCallback.Update(int entityIndex, bool added)
+        void IUpdateCallback.BeforeChange(int entityIndex, bool added)
+        {
+        }
+
+        void IUpdateCallback.AfterChange(int entityIndex, bool added)
         {
             if (_singleInclude)
             {

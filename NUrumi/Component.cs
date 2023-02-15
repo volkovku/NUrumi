@@ -55,6 +55,11 @@ namespace NUrumi
             _index = index;
             _fields = fields;
             Storage = storage;
+            OnInit();
+        }
+
+        protected virtual void OnInit()
+        {
         }
     }
 

@@ -166,6 +166,8 @@ namespace NUrumi
             var recordOffset = entities[entityIndex];
             if (recordOffset == 0)
             {
+                NotifyBeforeChanges(data, entityIndex, true);
+
                 var recordIndex = data.RecordsCount;
                 if (recordIndex == data.RecordsCapacity - 1)
                 {
@@ -186,7 +188,7 @@ namespace NUrumi
                 data.RecordsLastOffset = recordOffset;
                 entities[entityIndex] = recordOffset;
 
-                UpdateQueries(data, entityIndex, true);
+                NotifyAfterChanges(data, entityIndex, true);
             }
 
             var p = data.Records + recordOffset + fieldOffset;
@@ -203,6 +205,8 @@ namespace NUrumi
                 return false;
             }
 
+            NotifyBeforeChanges(data, entityIndex, false);
+
             var p = data.Records;
             var lastRecordOffset = data.RecordsLastOffset;
             var componentSize = data.ComponentSize;
@@ -213,7 +217,7 @@ namespace NUrumi
                 data.RecordsLastOffset -= componentSize;
                 recordOffset = 0;
 
-                UpdateQueries(data, entityIndex, false);
+                NotifyAfterChanges(data, entityIndex, false);
 
                 return true;
             }
@@ -228,19 +232,40 @@ namespace NUrumi
             data.RecordsCount -= 1;
             data.RecordsLastOffset -= componentSize;
 
-            UpdateQueries(data, entityIndex, false);
+            NotifyAfterChanges(data, entityIndex, false);
 
             return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void UpdateQueries(ComponentStorageData data, int entityIndex, bool added)
+        private static void NotifyBeforeChanges(ComponentStorageData data, int entityIndex, bool added)
         {
-            var queries = data.UpdateCallbacks;
             var queriesCount = data.UpdateCallbacksCount;
+            if (queriesCount == 0)
+            {
+                return;
+            }
+
+            var queries = data.UpdateCallbacks;
             for (var i = 0; i < queriesCount; i++)
             {
-                queries[i].Update(entityIndex, added);
+                queries[i].BeforeChange(entityIndex, added);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void NotifyAfterChanges(ComponentStorageData data, int entityIndex, bool added)
+        {
+            var queriesCount = data.UpdateCallbacksCount;
+            if (queriesCount == 0)
+            {
+                return;
+            }
+
+            var queries = data.UpdateCallbacks;
+            for (var i = 0; i < queriesCount; i++)
+            {
+                queries[i].AfterChange(entityIndex, added);
             }
         }
 
