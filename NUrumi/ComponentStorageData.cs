@@ -37,6 +37,217 @@ namespace NUrumi
             FillWithZero(Records, RecordsCapacity * ComponentSize);
         }
 
+        public int EntitiesCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => RecordsCount;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ResizeEntities(int newSize)
+        {
+            Array.Resize(ref Entities, newSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(int entityIndex)
+        {
+            return Entities[entityIndex] != 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe ref TValue Get<TValue>(
+            int entityIndex,
+            int fieldOffset)
+            where TValue : unmanaged
+        {
+            return ref *((TValue*) Get(fieldOffset, entityIndex));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* Get(int fieldOffset, int entityIndex)
+        {
+            var recordOffset = Entities[entityIndex];
+            if (recordOffset != 0)
+            {
+                return Records + recordOffset + fieldOffset;
+            }
+
+            // Extract method for performance optimization
+            // .net generates a lot of boilerplate IL code if exception is thrown in this scope
+            return ThrowComponentNotFound(fieldOffset, entityIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* GetOrSet<TValue>(
+            int entityIndex,
+            int fieldOffset)
+            where TValue : unmanaged
+        {
+            return GetOrSet<TValue>(entityIndex, fieldOffset, default);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* GetOrSet<TValue>(
+            int entityIndex,
+            int fieldOffset,
+            TValue value)
+            where TValue : unmanaged
+        {
+            var recordOffset = Entities[entityIndex];
+            if (recordOffset == 0)
+            {
+                Set(entityIndex, fieldOffset, ref value);
+            }
+
+            recordOffset = Entities[entityIndex];
+            var recordFieldOffset = recordOffset + +fieldOffset;
+            return Records + recordFieldOffset;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryGet<TValue>(
+            int entityIndex,
+            int fieldOffset,
+            out TValue result)
+            where TValue : unmanaged
+        {
+            var recordOffset = Entities[entityIndex];
+            var recordFieldOffset = recordOffset + fieldOffset;
+            result = *(TValue*) (Records + recordFieldOffset);
+            return recordOffset != 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Set<TValue>(
+            int entityIndex,
+            int fieldOffset,
+            TValue value)
+            where TValue : unmanaged
+        {
+            Set(entityIndex, fieldOffset, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Set<TValue>(
+            int entityIndex,
+            int fieldOffset,
+            ref TValue value)
+            where TValue : unmanaged
+        {
+            var entities = Entities;
+            var recordOffset = entities[entityIndex];
+            if (recordOffset == 0)
+            {
+                NotifyBeforeChanges(entityIndex, true);
+
+                var recordIndex = RecordsCount;
+                if (recordIndex == RecordsCapacity - 1)
+                {
+                    var newCapacity = RecordsCapacity << 1;
+                    var newSize = newCapacity * ComponentSize;
+                    var oldSize = RecordsCapacity * ComponentSize;
+                    var newRecords = (byte*) Marshal.AllocHGlobal(newSize);
+                    ComponentStorageData.FillWithZero(newRecords + oldSize, newSize - oldSize);
+                    Buffer.MemoryCopy(Records, newRecords, newSize, oldSize);
+                    Marshal.FreeHGlobal((IntPtr) Records);
+                    Records = newRecords;
+                    RecordsCapacity = newCapacity;
+                }
+
+                recordOffset = (recordIndex + 1) * ComponentSize;
+                *(int*) (Records + recordOffset) = entityIndex;
+                RecordsCount += 1;
+                RecordsLastOffset = recordOffset;
+                entities[entityIndex] = recordOffset;
+
+                NotifyAfterChanges(entityIndex, true);
+            }
+
+            var p = Records + recordOffset + fieldOffset;
+            *(TValue*) p = value;
+        }
+
+        public unsafe bool Remove(int entityIndex)
+        {
+            var entities = Entities;
+            ref var recordOffset = ref entities[entityIndex];
+            if (recordOffset == 0)
+            {
+                // Record already removed
+                return false;
+            }
+
+            NotifyBeforeChanges(entityIndex, false);
+
+            var p = Records;
+            var lastRecordOffset = RecordsLastOffset;
+            var componentSize = ComponentSize;
+            if (recordOffset == lastRecordOffset)
+            {
+                Buffer.MemoryCopy(p, p + recordOffset, componentSize, componentSize);
+                RecordsCount -= 1;
+                RecordsLastOffset -= componentSize;
+                recordOffset = 0;
+
+                NotifyAfterChanges(entityIndex, false);
+
+                return true;
+            }
+
+            var recordEntityIndex = *(int*) (Records + lastRecordOffset);
+            entities[recordEntityIndex] = recordOffset;
+
+            Buffer.MemoryCopy(p + lastRecordOffset, p + recordOffset, componentSize, componentSize);
+            Buffer.MemoryCopy(p, p + lastRecordOffset, componentSize, componentSize);
+
+            recordOffset = 0;
+            RecordsCount -= 1;
+            RecordsLastOffset -= componentSize;
+
+            NotifyAfterChanges(entityIndex, false);
+
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void NotifyBeforeChanges(int entityIndex, bool added)
+        {
+            var queriesCount = UpdateCallbacksCount;
+            if (queriesCount == 0)
+            {
+                return;
+            }
+
+            var queries = UpdateCallbacks;
+            for (var i = 0; i < queriesCount; i++)
+            {
+                queries[i].BeforeChange(entityIndex, added);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void NotifyAfterChanges(int entityIndex, bool added)
+        {
+            var queriesCount = UpdateCallbacksCount;
+            if (queriesCount == 0)
+            {
+                return;
+            }
+
+            var queries = UpdateCallbacks;
+            for (var i = 0; i < queriesCount; i++)
+            {
+                queries[i].AfterChange(entityIndex, added);
+            }
+        }
+
+        private unsafe void* ThrowComponentNotFound(int fieldOffset, int entityIndex)
+        {
+            var field = Component.Fields.Single(_ => _.Offset == fieldOffset);
+            throw NUrumiExceptions.ComponentNotFound(entityIndex, Component, field);
+        }
+
         internal void AddUpdateCallback(IUpdateCallback callback)
         {
             var index = UpdateCallbacksCount;
@@ -49,7 +260,7 @@ namespace NUrumi
             UpdateCallbacksCount += 1;
         }
 
-        internal static unsafe void FillWithZero(byte* array, int size)
+        private static unsafe void FillWithZero(byte* array, int size)
         {
             var p = array;
             for (var i = 0; i < size; i++)
@@ -57,222 +268,6 @@ namespace NUrumi
                 *p = 0;
                 p += 1;
             }
-        }
-    }
-
-    public static class UnsafeComponentStorage
-    {
-        public static int EntitiesCount(this ComponentStorageData data) => data.RecordsCount;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void ResizeEntities(this ComponentStorageData data, int newSize)
-        {
-            Array.Resize(ref data.Entities, newSize);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool Has(this ComponentStorageData data, int entityIndex)
-        {
-            return data.Entities[entityIndex] != 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ref TValue Get<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset)
-            where TValue : unmanaged
-        {
-            return ref *((TValue*) Get(data, fieldOffset, entityIndex));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void* Get(this ComponentStorageData data, int fieldOffset, int entityIndex)
-        {
-            var recordOffset = data.Entities[entityIndex];
-            if (recordOffset != 0)
-            {
-                return data.Records + recordOffset + fieldOffset;
-            }
-
-            // Extract method for performance optimization
-            // .net generates a lot of boilerplate IL code if exception is thrown in this scope
-            return ThrowComponentNotFound(data, fieldOffset, entityIndex);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void* GetOrSet<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset)
-            where TValue : unmanaged
-        {
-            return GetOrSet<TValue>(data, entityIndex, fieldOffset, default);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void* GetOrSet<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset,
-            TValue value)
-            where TValue : unmanaged
-        {
-            var recordOffset = data.Entities[entityIndex];
-            if (recordOffset == 0)
-            {
-                Set(data, entityIndex, fieldOffset, ref value);
-            }
-
-            recordOffset = data.Entities[entityIndex];
-            var recordFieldOffset = recordOffset + +fieldOffset;
-            return data.Records + recordFieldOffset;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe bool TryGet<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset,
-            out TValue result)
-            where TValue : unmanaged
-        {
-            var recordOffset = data.Entities[entityIndex];
-            var recordFieldOffset = recordOffset + fieldOffset;
-            result = *(TValue*) (data.Records + recordFieldOffset);
-            return recordOffset != 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Set<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset,
-            TValue value)
-            where TValue : unmanaged
-        {
-            Set(data, entityIndex, fieldOffset, ref value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Set<TValue>(
-            this ComponentStorageData data,
-            int entityIndex,
-            int fieldOffset,
-            ref TValue value)
-            where TValue : unmanaged
-        {
-            var entities = data.Entities;
-            var recordOffset = entities[entityIndex];
-            if (recordOffset == 0)
-            {
-                NotifyBeforeChanges(data, entityIndex, true);
-
-                var recordIndex = data.RecordsCount;
-                if (recordIndex == data.RecordsCapacity - 1)
-                {
-                    var newCapacity = data.RecordsCapacity << 1;
-                    var newSize = newCapacity * data.ComponentSize;
-                    var oldSize = data.RecordsCapacity * data.ComponentSize;
-                    var newRecords = (byte*) Marshal.AllocHGlobal(newSize);
-                    ComponentStorageData.FillWithZero(newRecords + oldSize, newSize - oldSize);
-                    Buffer.MemoryCopy(data.Records, newRecords, newSize, oldSize);
-                    Marshal.FreeHGlobal((IntPtr) data.Records);
-                    data.Records = newRecords;
-                    data.RecordsCapacity = newCapacity;
-                }
-
-                recordOffset = (recordIndex + 1) * data.ComponentSize;
-                *(int*) (data.Records + recordOffset) = entityIndex;
-                data.RecordsCount += 1;
-                data.RecordsLastOffset = recordOffset;
-                entities[entityIndex] = recordOffset;
-
-                NotifyAfterChanges(data, entityIndex, true);
-            }
-
-            var p = data.Records + recordOffset + fieldOffset;
-            *(TValue*) p = value;
-        }
-
-        public static unsafe bool Remove(this ComponentStorageData data, int entityIndex)
-        {
-            var entities = data.Entities;
-            ref var recordOffset = ref entities[entityIndex];
-            if (recordOffset == 0)
-            {
-                // Record already removed
-                return false;
-            }
-
-            NotifyBeforeChanges(data, entityIndex, false);
-
-            var p = data.Records;
-            var lastRecordOffset = data.RecordsLastOffset;
-            var componentSize = data.ComponentSize;
-            if (recordOffset == lastRecordOffset)
-            {
-                Buffer.MemoryCopy(p, p + recordOffset, componentSize, componentSize);
-                data.RecordsCount -= 1;
-                data.RecordsLastOffset -= componentSize;
-                recordOffset = 0;
-
-                NotifyAfterChanges(data, entityIndex, false);
-
-                return true;
-            }
-
-            var recordEntityIndex = *(int*) (data.Records + lastRecordOffset);
-            entities[recordEntityIndex] = recordOffset;
-
-            Buffer.MemoryCopy(p + lastRecordOffset, p + recordOffset, componentSize, componentSize);
-            Buffer.MemoryCopy(p, p + lastRecordOffset, componentSize, componentSize);
-
-            recordOffset = 0;
-            data.RecordsCount -= 1;
-            data.RecordsLastOffset -= componentSize;
-
-            NotifyAfterChanges(data, entityIndex, false);
-
-            return true;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void NotifyBeforeChanges(ComponentStorageData data, int entityIndex, bool added)
-        {
-            var queriesCount = data.UpdateCallbacksCount;
-            if (queriesCount == 0)
-            {
-                return;
-            }
-
-            var queries = data.UpdateCallbacks;
-            for (var i = 0; i < queriesCount; i++)
-            {
-                queries[i].BeforeChange(entityIndex, added);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void NotifyAfterChanges(ComponentStorageData data, int entityIndex, bool added)
-        {
-            var queriesCount = data.UpdateCallbacksCount;
-            if (queriesCount == 0)
-            {
-                return;
-            }
-
-            var queries = data.UpdateCallbacks;
-            for (var i = 0; i < queriesCount; i++)
-            {
-                queries[i].AfterChange(entityIndex, added);
-            }
-        }
-
-        private static unsafe void* ThrowComponentNotFound(ComponentStorageData data, int fieldOffset, int entityIndex)
-        {
-            var field = data.Component.Fields.Single(_ => _.Offset == fieldOffset);
-            throw NUrumiExceptions.ComponentNotFound(entityIndex, data.Component, field);
         }
     }
 }

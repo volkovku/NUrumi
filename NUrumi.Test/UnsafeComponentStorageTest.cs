@@ -34,29 +34,29 @@ namespace NUrumi.Test
             field2.Should().Be(ComponentStorageData.ReservedSize + 4);
 
             storage.Has(entity1).Should().BeFalse();
-            storage.EntitiesCount().Should().Be(0);
+            storage.EntitiesCount.Should().Be(0);
 
             // Set values for 1st entity
             storage.Set(entity1, field1, 1);
             storage.Has(entity1).Should().BeTrue();
             storage.Get<int>(entity1, field1).Should().Be(1);
-            storage.EntitiesCount().Should().Be(1);
+            storage.EntitiesCount.Should().Be(1);
             
             storage.Set(entity1, field2, 2);
             storage.Has(entity1).Should().BeTrue();
             storage.Get<int>(entity1, field2).Should().Be(2);
-            storage.EntitiesCount().Should().Be(1);
+            storage.EntitiesCount.Should().Be(1);
 
             // Set values for 2nd entity
             storage.Set(entity2, field1, 3);
             storage.Has(entity2).Should().BeTrue();
             storage.Get<int>(entity2, field1).Should().Be(3);
-            storage.EntitiesCount().Should().Be(2);
+            storage.EntitiesCount.Should().Be(2);
 
             storage.Set(entity2, field2, 4);
             storage.Has(entity2).Should().BeTrue();
             storage.Get<int>(entity2, field2).Should().Be(4);
-            storage.EntitiesCount().Should().Be(2);
+            storage.EntitiesCount.Should().Be(2);
 
             // Ensure that 1st entity values does not affected
             storage.Get<int>(entity1, field1).Should().Be(1);
@@ -66,7 +66,7 @@ namespace NUrumi.Test
             storage.Remove(entity1).Should().BeTrue();
             storage.Has(entity1).Should().BeFalse();
             storage.Has(entity2).Should().BeTrue();
-            storage.EntitiesCount().Should().Be(1);
+            storage.EntitiesCount.Should().Be(1);
 
             storage.Get<int>(entity2, field1).Should().Be(3);
             storage.Get<int>(entity2, field2).Should().Be(4);
@@ -77,7 +77,7 @@ namespace NUrumi.Test
             storage.Has(entity3).Should().BeTrue();
             storage.Get<int>(entity3, field1).Should().Be(5);
             storage.Get<int>(entity3, field2).Should().Be(6);
-            storage.EntitiesCount().Should().Be(2);
+            storage.EntitiesCount.Should().Be(2);
 
             storage.Has(entity1).Should().BeFalse();
             storage.Has(entity2).Should().BeTrue();
@@ -101,17 +101,17 @@ namespace NUrumi.Test
             storage.Get<int>(entity3, field1).Should().Be(5);
             storage.Get<int>(entity3, field2).Should().Be(6);
 
-            storage.EntitiesCount().Should().Be(3);
+            storage.EntitiesCount.Should().Be(3);
 
             // Remove all entities
             storage.Remove(entity1).Should().BeTrue();
-            storage.EntitiesCount().Should().Be(2);
+            storage.EntitiesCount.Should().Be(2);
             
             storage.Remove(entity2).Should().BeTrue();
-            storage.EntitiesCount().Should().Be(1);
+            storage.EntitiesCount.Should().Be(1);
             
             storage.Remove(entity3).Should().BeTrue();
-            storage.EntitiesCount().Should().Be(0);
+            storage.EntitiesCount.Should().Be(0);
 
             storage.Has(entity1).Should().BeFalse();
             storage.Has(entity2).Should().BeFalse();
@@ -141,7 +141,7 @@ namespace NUrumi.Test
                 .Invoking(s => s.Get<int>(entity3, field2))
                 .Should().Throw<NUrumiComponentNotFoundException>();
 
-            storage.EntitiesCount().Should().Be(0);
+            storage.EntitiesCount.Should().Be(0);
         }
     }
 }
