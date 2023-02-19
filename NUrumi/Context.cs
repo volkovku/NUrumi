@@ -84,8 +84,8 @@ namespace NUrumi
                 return entityId;
             }
 
-            entityId = _entitiesCount;
-            if (entityId == _entities.Length)
+            entityId = _entitiesCount + 1;
+            if (entityId >= _entities.Length)
             {
                 var newSize = entityId << 1;
                 Array.Resize(ref _entities, newSize);

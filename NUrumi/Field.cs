@@ -65,9 +65,9 @@ namespace NUrumi
         /// <param name="entityId">An entity identity.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetRef(int entityId)
+        public ref TValue GetRef(int entityId)
         {
-            return ref *((TValue*) _storage.Get(_offset, entityId));
+            return ref _storage.Get<TValue>(entityId, _offset);
         }
 
         /// <summary>
@@ -77,9 +77,9 @@ namespace NUrumi
         /// <param name="entityId">An entity identity.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetOrAdd(int entityId)
+        public ref TValue GetOrAdd(int entityId)
         {
-            return ref *((TValue*) _storage.GetOrSet<TValue>(entityId, _offset));
+            return ref _storage.GetOrSet<TValue>(entityId, _offset);
         }
 
         /// <summary>
@@ -90,9 +90,9 @@ namespace NUrumi
         /// <param name="value">A value which should be set if entity does not have value.</param>
         /// <returns>A value of this field in entity.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref TValue GetOrSet(int entityId, TValue value)
+        public ref TValue GetOrSet(int entityId, TValue value)
         {
-            return ref *((TValue*) _storage.GetOrSet(entityId, _offset, value));
+            return ref _storage.GetOrSet(entityId, _offset, value);
         }
 
         /// <summary>

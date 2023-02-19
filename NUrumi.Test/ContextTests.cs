@@ -45,19 +45,19 @@ namespace NUrumi.Test
             var entity1 = context.CreateEntity();
             context.IsAlive(entity1, out var entity1Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(1);
-            entity1.Should().Be(0);
+            entity1.Should().Be(1);
             entity1Gen.Should().Be(1);
 
             var entity2 = context.CreateEntity();
             context.IsAlive(entity2, out var entity2Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(2);
-            entity2.Should().Be(1);
+            entity2.Should().Be(2);
             entity2Gen.Should().Be(1);
 
             var entity3 = context.CreateEntity();
             context.IsAlive(entity3, out var entity3Gen).Should().BeTrue();
             context.LiveEntitiesCount.Should().Be(3);
-            entity3.Should().Be(2);
+            entity3.Should().Be(3);
             entity3Gen.Should().Be(1);
 
             // Ensure that new entities does not affect each other
@@ -79,9 +79,9 @@ namespace NUrumi.Test
             context.LiveEntitiesCount.Should().Be(4);
             context.IsAlive(entity4, out var entity4Gen).Should().BeTrue();
             context.IsAlive(entity5, out var entity5Gen).Should().BeTrue();
-            entity4.Should().Be(3);
+            entity4.Should().Be(4);
             entity4Gen.Should().Be(1);
-            entity5.Should().Be(4);
+            entity5.Should().Be(5);
             entity5Gen.Should().Be(1);
 
             // It should reuse entity index when reuse barrier was reached
@@ -108,9 +108,9 @@ namespace NUrumi.Test
             context.LiveEntitiesCount.Should().Be(4);
             context.RecycledEntitiesCount.Should().Be(1);
 
-            entity6.Should().Be(1);
+            entity6.Should().Be(2);
             entity6Gen.Should().Be(2);
-            entity7.Should().Be(4);
+            entity7.Should().Be(5);
             entity7Gen.Should().Be(2);
         }
 

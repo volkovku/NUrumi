@@ -11,15 +11,16 @@ namespace NUrumi
         public const int ReservedSize = sizeof(int); // index
 
         internal readonly IComponent Component;
-        internal readonly int ComponentSize;
         internal int[] Entities;
-        internal int RecordsCapacity;
-        internal unsafe byte* Records;
-        internal int RecordsLastOffset;
-        internal int RecordsCount;
 
-        internal IUpdateCallback[] UpdateCallbacks = new IUpdateCallback[10];
-        internal int UpdateCallbacksCount;
+        private readonly int _componentSize;
+        private int _recordsCapacity;
+        private unsafe byte* _records;
+        private int _recordsLastOffset;
+        private int _recordsCount;
+
+        private IUpdateCallback[] _updateCallbacks = new IUpdateCallback[10];
+        private int _updateCallbacksCount;
 
         public unsafe ComponentStorageData(
             IComponent component,
@@ -28,19 +29,20 @@ namespace NUrumi
             int recordsInitialCapacity)
         {
             Component = component;
-            ComponentSize = componentSize + ReservedSize;
             Entities = new int[entitiesInitialCapacity];
-            Records = (byte*) Marshal.AllocHGlobal(recordsInitialCapacity * ComponentSize);
-            RecordsCapacity = recordsInitialCapacity;
-            RecordsCount = 0;
-            RecordsLastOffset = 0;
-            FillWithZero(Records, RecordsCapacity * ComponentSize);
+
+            _componentSize = componentSize + ReservedSize;
+            _records = (byte*) Marshal.AllocHGlobal(recordsInitialCapacity * _componentSize);
+            _recordsCapacity = recordsInitialCapacity;
+            _recordsCount = 0;
+            _recordsLastOffset = 0;
+            FillWithZero(_records, _recordsCapacity * _componentSize);
         }
 
         public int EntitiesCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => RecordsCount;
+            get => _recordsCount;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -61,34 +63,28 @@ namespace NUrumi
             int fieldOffset)
             where TValue : unmanaged
         {
-            return ref *((TValue*) Get(fieldOffset, entityIndex));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void* Get(int fieldOffset, int entityIndex)
-        {
-            var recordOffset = Entities[entityIndex];
-            if (recordOffset != 0)
+            var offset = Entities[entityIndex] + fieldOffset;
+            if (offset != fieldOffset)
             {
-                return Records + recordOffset + fieldOffset;
+                return ref *(TValue*) (_records + offset);
             }
 
             // Extract method for performance optimization
             // .net generates a lot of boilerplate IL code if exception is thrown in this scope
-            return ThrowComponentNotFound(fieldOffset, entityIndex);
+            return ref *(TValue*) ThrowComponentNotFound(fieldOffset, entityIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void* GetOrSet<TValue>(
+        public ref TValue GetOrSet<TValue>(
             int entityIndex,
             int fieldOffset)
             where TValue : unmanaged
         {
-            return GetOrSet<TValue>(entityIndex, fieldOffset, default);
+            return ref GetOrSet<TValue>(entityIndex, fieldOffset, default);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void* GetOrSet<TValue>(
+        public unsafe ref TValue GetOrSet<TValue>(
             int entityIndex,
             int fieldOffset,
             TValue value)
@@ -102,7 +98,7 @@ namespace NUrumi
 
             recordOffset = Entities[entityIndex];
             var recordFieldOffset = recordOffset + +fieldOffset;
-            return Records + recordFieldOffset;
+            return ref *(TValue*) (_records + recordFieldOffset);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -114,7 +110,7 @@ namespace NUrumi
         {
             var recordOffset = Entities[entityIndex];
             var recordFieldOffset = recordOffset + fieldOffset;
-            result = *(TValue*) (Records + recordFieldOffset);
+            result = *(TValue*) (_records + recordFieldOffset);
             return recordOffset != 0;
         }
 
@@ -141,30 +137,30 @@ namespace NUrumi
             {
                 NotifyBeforeChanges(entityIndex, true);
 
-                var recordIndex = RecordsCount;
-                if (recordIndex == RecordsCapacity - 1)
+                var recordIndex = _recordsCount;
+                if (recordIndex == _recordsCapacity - 1)
                 {
-                    var newCapacity = RecordsCapacity << 1;
-                    var newSize = newCapacity * ComponentSize;
-                    var oldSize = RecordsCapacity * ComponentSize;
+                    var newCapacity = _recordsCapacity << 1;
+                    var newSize = newCapacity * _componentSize;
+                    var oldSize = _recordsCapacity * _componentSize;
                     var newRecords = (byte*) Marshal.AllocHGlobal(newSize);
-                    ComponentStorageData.FillWithZero(newRecords + oldSize, newSize - oldSize);
-                    Buffer.MemoryCopy(Records, newRecords, newSize, oldSize);
-                    Marshal.FreeHGlobal((IntPtr) Records);
-                    Records = newRecords;
-                    RecordsCapacity = newCapacity;
+                    FillWithZero(newRecords + oldSize, newSize - oldSize);
+                    Buffer.MemoryCopy(_records, newRecords, newSize, oldSize);
+                    Marshal.FreeHGlobal((IntPtr) _records);
+                    _records = newRecords;
+                    _recordsCapacity = newCapacity;
                 }
 
-                recordOffset = (recordIndex + 1) * ComponentSize;
-                *(int*) (Records + recordOffset) = entityIndex;
-                RecordsCount += 1;
-                RecordsLastOffset = recordOffset;
+                recordOffset = (recordIndex + 1) * _componentSize;
+                *(int*) (_records + recordOffset) = entityIndex;
+                _recordsCount += 1;
+                _recordsLastOffset = recordOffset;
                 entities[entityIndex] = recordOffset;
 
                 NotifyAfterChanges(entityIndex, true);
             }
 
-            var p = Records + recordOffset + fieldOffset;
+            var p = _records + recordOffset + fieldOffset;
             *(TValue*) p = value;
         }
 
@@ -180,14 +176,14 @@ namespace NUrumi
 
             NotifyBeforeChanges(entityIndex, false);
 
-            var p = Records;
-            var lastRecordOffset = RecordsLastOffset;
-            var componentSize = ComponentSize;
+            var p = _records;
+            var lastRecordOffset = _recordsLastOffset;
+            var componentSize = _componentSize;
             if (recordOffset == lastRecordOffset)
             {
                 Buffer.MemoryCopy(p, p + recordOffset, componentSize, componentSize);
-                RecordsCount -= 1;
-                RecordsLastOffset -= componentSize;
+                _recordsCount -= 1;
+                _recordsLastOffset -= componentSize;
                 recordOffset = 0;
 
                 NotifyAfterChanges(entityIndex, false);
@@ -195,15 +191,15 @@ namespace NUrumi
                 return true;
             }
 
-            var recordEntityIndex = *(int*) (Records + lastRecordOffset);
+            var recordEntityIndex = *(int*) (_records + lastRecordOffset);
             entities[recordEntityIndex] = recordOffset;
 
             Buffer.MemoryCopy(p + lastRecordOffset, p + recordOffset, componentSize, componentSize);
             Buffer.MemoryCopy(p, p + lastRecordOffset, componentSize, componentSize);
 
             recordOffset = 0;
-            RecordsCount -= 1;
-            RecordsLastOffset -= componentSize;
+            _recordsCount -= 1;
+            _recordsLastOffset -= componentSize;
 
             NotifyAfterChanges(entityIndex, false);
 
@@ -213,13 +209,13 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void NotifyBeforeChanges(int entityIndex, bool added)
         {
-            var queriesCount = UpdateCallbacksCount;
+            var queriesCount = _updateCallbacksCount;
             if (queriesCount == 0)
             {
                 return;
             }
 
-            var queries = UpdateCallbacks;
+            var queries = _updateCallbacks;
             for (var i = 0; i < queriesCount; i++)
             {
                 queries[i].BeforeChange(entityIndex, added);
@@ -229,13 +225,13 @@ namespace NUrumi
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void NotifyAfterChanges(int entityIndex, bool added)
         {
-            var queriesCount = UpdateCallbacksCount;
+            var queriesCount = _updateCallbacksCount;
             if (queriesCount == 0)
             {
                 return;
             }
 
-            var queries = UpdateCallbacks;
+            var queries = _updateCallbacks;
             for (var i = 0; i < queriesCount; i++)
             {
                 queries[i].AfterChange(entityIndex, added);
@@ -250,14 +246,14 @@ namespace NUrumi
 
         internal void AddUpdateCallback(IUpdateCallback callback)
         {
-            var index = UpdateCallbacksCount;
-            if (index == UpdateCallbacks.Length)
+            var index = _updateCallbacksCount;
+            if (index == _updateCallbacks.Length)
             {
-                Array.Resize(ref UpdateCallbacks, UpdateCallbacksCount << 1);
+                Array.Resize(ref _updateCallbacks, _updateCallbacksCount << 1);
             }
 
-            UpdateCallbacks[index] = callback;
-            UpdateCallbacksCount += 1;
+            _updateCallbacks[index] = callback;
+            _updateCallbacksCount += 1;
         }
 
         private static unsafe void FillWithZero(byte* array, int size)
