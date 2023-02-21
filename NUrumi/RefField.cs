@@ -108,7 +108,7 @@ namespace NUrumi
             _name = name;
             _index = fieldIndex;
             _offset = fieldOffset;
-            _entities = new int?[storage.Entities.Length];
+            _entities = new int?[storage.EntitiesCapacity];
             _storage = storage;
             _storage.AddUpdateCallback(this);
         }

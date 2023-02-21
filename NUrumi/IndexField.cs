@@ -104,7 +104,7 @@ namespace NUrumi
 
             if (!_entities.TryGetValue(value, out var index))
             {
-                index = new EntitiesSet(_storage.Entities.Length);
+                index = new EntitiesSet(_storage.EntitiesCapacity);
                 _entities.Add(value, index);
             }
 
@@ -126,7 +126,7 @@ namespace NUrumi
             _name = name;
             _index = fieldIndex;
             _offset = fieldOffset;
-            _currentValues = new TValue?[storage.Entities.Length];
+            _currentValues = new TValue?[storage.EntitiesCapacity];
             _storage = storage;
             _storage.AddUpdateCallback(this);
         }

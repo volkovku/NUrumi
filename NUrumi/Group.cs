@@ -9,9 +9,6 @@ namespace NUrumi
     /// </summary>
     public sealed class Group<TRegistry> : IUpdateCallback where TRegistry : Registry<TRegistry>, new()
     {
-        private static readonly DeferredOperationComparer DeferredOperationComparerInstance
-            = new DeferredOperationComparer();
-
         private readonly bool[] _conditions;
         private readonly ComponentStorageData[] _componentStorages;
         private readonly bool _singleInclude;
@@ -176,7 +173,7 @@ namespace NUrumi
                 return;
             }
 
-            var ix = _deferredOperations.BinarySearch(entityIndex, DeferredOperationComparerInstance);
+            var ix = _deferredOperations.BinarySearch(entityIndex);
             if (ix < 0)
             {
                 _deferredOperations.Insert(-(ix + 1), entityIndex);
@@ -205,10 +202,10 @@ namespace NUrumi
                 return;
             }
 
-            var ix = _deferredOperations.BinarySearch(entityIndex, DeferredOperationComparerInstance);
+            var ix = _deferredOperations.BinarySearch(entityIndex);
             if (ix < 0)
             {
-                _deferredOperations.Insert(-(ix + 1), -entityIndex - 1);
+                _deferredOperations.Insert(-(ix + 1), entityIndex);
             }
         }
 
@@ -227,15 +224,8 @@ namespace NUrumi
 
                 for (var i = 0; i < _deferredOperations.Count; i++)
                 {
-                    var operation = _deferredOperations[i];
-                    if (operation > 0)
-                    {
-                        h(operation, true);
-                    }
-                    else
-                    {
-                        h(-(operation + 1), false);
-                    }
+                    var entity = _deferredOperations[i];
+                    h(entity, _entities.Has(entity));
                 }
 
                 _deferredOperations.Clear();
@@ -270,29 +260,6 @@ namespace NUrumi
             {
                 _setEnumerator.Dispose();
                 _group.Unlock();
-            }
-        }
-
-        private class DeferredOperationComparer : IComparer<int>
-        {
-            public int Compare(int x, int y)
-            {
-                if (x == y)
-                {
-                    return 0;
-                }
-
-                if (x < 0)
-                {
-                    x = -(x + 1);
-                }
-
-                if (y < 0)
-                {
-                    y = -(x + 1);
-                }
-
-                return x.CompareTo(y);
             }
         }
     }
