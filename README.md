@@ -93,6 +93,9 @@ void Main()
     // Print entity name
     Console.WriteLine(thor.Get(playerName));
     
+    // Prints true because thor has a name
+    Console.WriteLine(thor.Has(context.Registry.PlayerName));
+
     // For strucure type Field class provies performance efficient methods
     ref var thorPosition = ref thor.GetRef(position);
     ref var thorVelocity = ref thor.GetRef(velocity);
@@ -152,6 +155,9 @@ void Main()
     // Print entity name
     Console.WriteLine(thor.Get(playerName));
     
+    // Prints true because thor has a name
+    Console.WriteLine(thor.Has(playerName));
+
     // For strucure types Field class provies performance efficient methods
     ref var thorPosition = ref thor.GetRef(position);
     ref var thorVelocity = ref thor.GetRef(velocity);
