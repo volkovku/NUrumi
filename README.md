@@ -442,6 +442,68 @@ foreach (var entity in group)
 __*RefField*__ is a sister of __*Field*__. It allows to store reference type values.
 As a handicap her hasn't high performance methods like a __*Field*__.
 
+__*RefField*__ provides methods:
+
+* ```TValue Get(int entityId)```
+* ```bool TryGet(int entityId, out TValue result)```
+* ```void Set(int entityId, TValue value)```
+
 ### ReactiveField
 
+__*ReactiveField*__ can hold pure structures and track value changes.
+
+To track value changes your can subscribe on OnValueChanged event.
+
+__*ReactiveField*__ provides events:
+
+```csharp
+OnValueChanged(
+    IComponent component,     // A component which field was changed
+    IField field,             // A flied which values was changed
+    int entityId,             // An identifier of entity which value was changed
+    TValue? oldValue,         // The old value
+    TValue newValue)          // The new value
+```
+
+__*ReactiveField*__ provides methods:
+
+* ```TValue Get(int entityId)```
+* ```bool TryGet(int entityId, out TValue result)```
+* ```void Set(int entityId, TValue value)```
+
 ### IndexField
+
+An __*IndexField*__ provides a one-to-many relationship.
+It's alternative way to organize some kind of hierarchies based on external identifiers or composite keys.
+
+```csharp
+class TestRegistry : Registry<TestRegistry>
+{
+    public Parent Parent;
+}
+
+class Parent : Component<Parent>
+{
+    public IndexField<int> Value;
+}
+
+// Boilerplate
+var context = new Context<TestRegistry>();
+var parentComponent = context.Registry.Parent;
+var parent = parentComponent.Value;
+
+// Create hierarhy
+var parentEntity = context.CreateEntity();
+
+var childEntity1 = context.CreateEntity();
+childEntity1.Set(parent, parentEntity);
+
+var childEntity2 = context.CreateEntity();
+childEntity2.Set(parent, parentEntity);
+
+var childEntity3 = context.CreateEntity();
+childEntity3.Set(parent, parentEntity);
+
+// Get parent children
+var children = parent.GetEntitiesAssociatedWith(parentEntity);
+```
