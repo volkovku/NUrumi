@@ -128,4 +128,17 @@ namespace NUrumi
             _storage = storage;
         }
     }
+
+    public static class ReactiveFieldCompanion
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGet<TValue>(
+            this int entityId,
+            ReactiveField<TValue> field,
+            out TValue value)
+            where TValue : unmanaged, IEquatable<TValue>
+        {
+            return field.TryGet(entityId, out value);
+        }
+    }
 }

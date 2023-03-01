@@ -39,6 +39,7 @@ namespace NUrumi
             public IReadOnlyCollection<IComponent> Included => _include;
             public IReadOnlyCollection<IComponent> Excluded => _exclude;
 
+            // ReSharper disable once MemberHidesStaticFromOuterClass
             public IGroupFilter Include(IComponent component)
             {
                 if (_exclude.Contains(component))
@@ -54,6 +55,7 @@ namespace NUrumi
                     (_hashCode * 397) ^ component.GetHashCode());
             }
 
+            // ReSharper disable once MemberHidesStaticFromOuterClass
             public IGroupFilter Exclude(IComponent component)
             {
                 if (_include.Contains(component))

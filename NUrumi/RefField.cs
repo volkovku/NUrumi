@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 
 namespace NUrumi
 {
@@ -146,6 +147,18 @@ namespace NUrumi
         void IContextResizeCallback.ResizeEntities(int newSize)
         {
             Array.Resize(ref _entities, newSize);
+        }
+    }
+
+    public static class RefFieldCompanion
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGet<TValue>(
+            this int entityId,
+            RefField<TValue> field,
+            out TValue value) where TValue : class
+        {
+            return field.TryGet(entityId, out value);
         }
     }
 }

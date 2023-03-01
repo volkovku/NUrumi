@@ -166,46 +166,21 @@ namespace NUrumi
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGet<TValue>(this int entityId, IField<TValue> field, out TValue value)
+        public static bool TryGet<TValue>(
+            this int entityId,
+            Field<TValue> field,
+            out TValue value)
             where TValue : unmanaged
         {
             return field.TryGet(entityId, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGet<TValue>(this int entityId, RefField<TValue> field, out TValue value)
-            where TValue : class
-        {
-            return field.TryGet(entityId, out value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGet<TComponent, TValue>(
+        public static int Set<TField, TValue>(
             this int entityId,
-            Component<TComponent>.OfRef<TValue> component,
-            out TValue value)
-            where TComponent : Component<TComponent>, new()
-            where TValue : class
-        {
-            return component.TryGet(entityId, out value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int Set<TValue>(this int entityId, IField<TValue> field, TValue value) where TValue : unmanaged
-        {
-            field.Set(entityId, value);
-            return entityId;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int Set<TValue>(this int entityId, Field<TValue> field, TValue value) where TValue : unmanaged
-        {
-            field.Set(entityId, value);
-            return entityId;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int Set<TValue>(this int entityId, RefField<TValue> field, TValue value) where TValue : class
+            TField field,
+            TValue value)
+            where TField : IField<TValue>
         {
             field.Set(entityId, value);
             return entityId;

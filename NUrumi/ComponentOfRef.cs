@@ -47,4 +47,30 @@ namespace NUrumi
             }
         }
     }
+
+    public static class ComponentOfRefCompanion
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool TryGet<TComponent, TValue>(
+            this int entityId,
+            Component<TComponent>.OfRef<TValue> component,
+            out TValue value)
+            where TComponent : Component<TComponent>, new()
+            where TValue : class
+        {
+            return component.TryGet(entityId, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Set<TComponent, TValue>(
+            this int entityId,
+            Component<TComponent>.OfRef<TValue> component,
+            TValue value)
+            where TComponent : Component<TComponent>, new()
+            where TValue : class
+        {
+            component.Set(entityId, value);
+            return entityId;
+        }
+    }
 }

@@ -18,6 +18,7 @@ __*NUrumi*__ project is free from dependencies and code generation.
     * [Field](#Field)
     * [RefField](#RefField)
     * [ReactiveField](#ReactiveField)
+    * [PrimaryKey](#PrimaryKey)
     * [IndexField](#IndexField)
 
 ## Core concepts
@@ -477,10 +478,103 @@ __*ReactiveField*__ provides methods:
 * ```bool TryGet(int entityId, out TValue result)```
 * ```void Set(int entityId, TValue value)```
 
+### PrimaryKey
+
+A __*PrimaryKey*__ provides way to add unique constraints.
+
+__*PrimaryKey*__ provides methods:
+
+* ```TKey Get(int entityId)```
+* ```bool TryGet(int entityId, out TKey result)```
+* ```void Set(int entityId, TKey value)```
+* ```int GetEntityByKey(TKey key)```
+* ```bool TryGetEntityByKey(TKey key, out int entityId)```
+
+```csharp
+public class Registry : Registry<Registry>
+{
+    public ExternalIdComponent ExternalIdIndex;
+}
+
+public class ExternalIdComponent : Component<ExternalIdComponent>.OfPrimaryKey<ExternalEntityId>
+{
+}
+
+public readonly struct ExternalEntityId : IEquatable<ExternalEntityId>
+{
+    public ExternalEntityId(int externalId)
+    {
+        ExternalId = externalId;
+    }
+
+    public readonly int ExternalId;
+
+    public override string ToString()
+    {
+        return ExternalId.ToString();
+    }
+
+    public bool Equals(ExternalEntityId other)
+    {
+        return ExternalId == other.ExternalId;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is ExternalEntityId other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return ExternalId;
+    }
+
+    public static bool operator ==(ExternalEntityId left, ExternalEntityId right)
+    {
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(ExternalEntityId left, ExternalEntityId right)
+    {
+        return !left.Equals(right);
+    }
+}
+
+// Boilerplate
+var context = new Context<Registry>();
+var externalIdIndex = context.Registry.ExternalIdIndex;
+
+// Usage
+var externalId = new ExternalEntityId(1);
+
+var entity = context
+    .CreateEntity()
+    .Set(externalIdIndex, externalId);
+
+Console.WriteLine(entity.Has(externalIdIndex)); // True
+Console.WriteLine(entity.TryGet(externalIdIndex, out var entityExternalId)); // True
+Console.WriteLine(entity.Get(externalIdIndex)); // 1
+Console.WriteLine(entityExternalId); // 1
+
+// Primary key capabilities
+Console.WriteLine(externalIdIndex.TryGetEntityByKey(externalId, out var foundEntity)); // True
+Console.WriteLine(foundEntity == entity); // True
+Console.WriteLine(externalIdIndex.GetEntityByKey(externalId) == entity); // True
+
+```
+
+
 ### IndexField
 
 An __*IndexField*__ provides a one-to-many relationship.
 It's alternative way to organize some kind of hierarchies based on external identifiers or composite keys.
+
+__*PrimaryKey*__ provides methods:
+
+* ```TKey Get(int entityId)```
+* ```bool TryGet(int entityId, out TKey result)```
+* ```void Set(int entityId, TKey value)```
+* ```EntitiesSet GetEntitiesAssociatedWith(TValue value)```
 
 ```csharp
 class TestRegistry : Registry<TestRegistry>

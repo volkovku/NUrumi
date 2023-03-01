@@ -71,4 +71,19 @@ namespace NUrumi
             }
         }
     }
+
+    public static class ComponentOfCompanion
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Set<TComponent, TValue>(
+            this int entityId,
+            Component<TComponent>.Of<TValue> component,
+            TValue value)
+            where TComponent : Component<TComponent>, new()
+            where TValue : unmanaged
+        {
+            component.Set(entityId, value);
+            return entityId;
+        }
+    }
 }

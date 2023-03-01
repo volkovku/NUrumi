@@ -1,6 +1,6 @@
 ﻿namespace NUrumi.Test.Model
 {
-    public sealed partial class TestRegistry : Registry<TestRegistry>
+    public sealed class TestRegistry : Registry<TestRegistry>
     {
         public TestComponent Test;
         public Position Position;
